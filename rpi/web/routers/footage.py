@@ -13,10 +13,10 @@ logger = logging.getLogger(__name__)
 HTTP_400_BAD_REQUEST: int = 400
 HTTP_404_NOT_FOUND: int = 404
 
-router = APIRouter()
+router = APIRouter(prefix="/footage")
 
 
-@router.get("/footage")
+@router.get("")
 async def footage_browser(request: Request, page: int = 1):  # noqa: ANN202
     """
     Render the paginated footage browser page.
@@ -49,7 +49,7 @@ async def footage_browser(request: Request, page: int = 1):  # noqa: ANN202
 
 
 @router.get(
-    "/footage/{year}/{month}/{day}/{filename}",
+    "/{year}/{month}/{day}/{filename}",
     responses={
         400: {"description": "Path escapes footage directory"},
         404: {"description": "Segment file not found"},
