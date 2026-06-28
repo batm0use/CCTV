@@ -81,9 +81,9 @@ def get_segment_batch(
         id, path, start_timestamp, end_timestamp, size_bytes.
     """
     if not is_synced:
-        all_rows = fetch_unsynced_segments(connection=db_connection, limit=limit)
+        all_segments = fetch_unsynced_segments(connection=db_connection, limit=limit)
     else:
-        all_rows = db_connection.execute(
+        all_segments = db_connection.execute(
             """
             SELECT id, path, start_timestamp, end_timestamp, size_bytes
               FROM segments
@@ -94,7 +94,7 @@ def get_segment_batch(
             {"limit": limit},
         ).fetchall()
 
-    return [dict(row) for row in all_rows]
+    return [dict(row) for row in all_segments]
 
 
 def confirm_synced(
