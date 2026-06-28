@@ -22,7 +22,8 @@ SEGMENT_FINALISE_TIMEOUT_SECONDS: int = 30
 
 
 class Recorder:
-    """Manages continuous H.264 recording and low-res JPEG preview capture.
+    """
+    Manages continuous H.264 recording and low-res JPEG preview capture.
 
     Owns the sole Picamera2 instance for the process. Segments are written
     as MP4 files, rotated on wall-clock boundaries (e.g. every 10 minutes
@@ -39,7 +40,8 @@ class Recorder:
         config: AppConfig,
         db_connection: sqlite3.Connection,
     ) -> None:
-        """Initialise the recorder with config and a shared DB connection.
+        """
+        Initialise the recorder with config and a shared DB connection.
 
         Args:
             config: Application configuration loaded from cctv.conf.
@@ -55,7 +57,8 @@ class Recorder:
         self._encoder: H264Encoder | None = None
 
     def start(self) -> None:
-        """Open the camera, configure streams, and begin recording.
+        """
+        Open the camera, configure streams, and begin recording.
 
         Configures two simultaneous streams:
         - main: full-resolution H.264 video written to MP4 segment files
@@ -81,7 +84,6 @@ class Recorder:
         self._camera.configure(video_config)
         self._camera.start()
 
-        # Allow the camera to warm up before encoding begins
         time.sleep(2)
         logger.info("Camera started at %s", self.config.camera.resolution)
 
@@ -89,7 +91,8 @@ class Recorder:
         self._run_loop()
 
     def stop(self) -> None:
-        """Signal the recording loop to stop after the current segment.
+        """
+        Signal the recording loop to stop after the current segment.
 
         Thread-safe. Can be called from any thread.
         """
@@ -97,7 +100,8 @@ class Recorder:
         self._stop_event.set()
 
     def _run_loop(self) -> None:
-        """Main recording loop: rotate segments and capture preview frames.
+        """
+        Main recording loop: rotate segments and capture preview frames.
 
         Runs until stop() is called. On each iteration checks whether the
         current segment has reached its configured duration, and if so
@@ -110,11 +114,9 @@ class Recorder:
         while not self._stop_event.is_set():
             current_time = time.monotonic()
 
-            # Rotate segment if duration exceeded
             if self._should_rotate_segment():
                 self._rotate_segment()
 
-            # Capture a preview frame for the MJPEG stream
             if current_time - last_frame_capture_time >= frame_interval_seconds:
                 self._capture_preview_frame()
                 last_frame_capture_time = current_time
@@ -128,7 +130,8 @@ class Recorder:
             logger.info("Camera closed")
 
     def _should_rotate_segment(self) -> bool:
-        """Return True if the current segment has exceeded its configured duration.
+        """
+        Return True if the current segment has exceeded its configured duration.
 
         Returns:
             True if recording has run longer than segment_duration_minutes,
@@ -136,13 +139,16 @@ class Recorder:
         """
         if self._current_segment_start is None:
             return False
+
         elapsed_minutes = (
             datetime.now(tz=timezone.utc) - self._current_segment_start
         ).total_seconds() / 60.0
+
         return elapsed_minutes >= self.config.recording.segment_duration_minutes
 
     def _begin_new_segment(self) -> None:
-        """Start recording a new segment file.
+        """
+        Start recording a new segment file.
 
         Creates the date-based output directory, inserts a DB row, and
         starts the H264Encoder writing to the new file.
@@ -164,7 +170,7 @@ class Recorder:
         self._current_segment_id = state.insert_segment(
             connection=self.db_connection,
             path=str(new_segment_path),
-            start_ts=segment_start_time,
+            start_timestamp=segment_start_time,
         )
         self._current_segment_path = new_segment_path
         self._current_segment_start = segment_start_time
@@ -176,7 +182,8 @@ class Recorder:
         logger.info("Started segment %s", new_segment_path.name)
 
     def _rotate_segment(self) -> None:
-        """Stop the current segment, finalise its DB record, and start a new one.
+        """
+        Stop the current segment, finalise its DB record, and start a new one.
 
         Raises:
             sqlite3.OperationalError: If the DB finalise update fails.
@@ -186,7 +193,8 @@ class Recorder:
         self._begin_new_segment()
 
     def _finalise_current_segment(self) -> None:
-        """Stop encoding the current segment and write its metadata to the DB.
+        """
+        Stop encoding the current segment and write its metadata to the DB.
 
         Raises:
             sqlite3.OperationalError: If the DB update fails.
@@ -205,7 +213,7 @@ class Recorder:
         state.finalise_segment(
             connection=self.db_connection,
             segment_id=self._current_segment_id,
-            end_ts=segment_end_time,
+            end_timestamp=segment_end_time,
             size_bytes=segment_file_size,
         )
         logger.info(
@@ -220,13 +228,15 @@ class Recorder:
         self._encoder = None
 
     def _capture_preview_frame(self) -> None:
-        """Capture one JPEG frame from the lores stream into frame_buffer.
+        """
+        Capture one JPEG frame from the lores stream into frame_buffer.
 
         Silently skips if the camera is not ready or capture fails, so
         that preview errors never interrupt the recording loop.
         """
         if self._camera is None:
             return
+
         try:
             jpeg_buffer = io.BytesIO()
             self._camera.capture_file(jpeg_buffer, name="lores", format="jpeg")
@@ -236,11 +246,11 @@ class Recorder:
 
 
 def run_recorder(config: AppConfig, db_path: str) -> None:
-    """Entry point called by manage.py to start the recorder in a thread.
+    """
+    Entry point called by manage.py to start the recorder in a thread.
 
     Opens a dedicated DB connection for the recorder thread and blocks
-    until the recorder's stop event is set (i.e. forever, unless SIGTERM
-    or a keyboard interrupt is received — both are handled by manage.py).
+    until the recorder's stop event is set.
 
     Args:
         config: Application configuration loaded from cctv.conf.

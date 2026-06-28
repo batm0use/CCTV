@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
 def open_connection(db_path: str) -> sqlite3.Connection:
-    """Open a WAL-mode SQLite connection to the state database.
+    """
+    Open a WAL-mode SQLite connection to the state database.
 
     WAL mode allows one writer and multiple concurrent readers without
     blocking, which is the access pattern used by cctv-main and cctv-storage.
@@ -25,11 +26,13 @@ def open_connection(db_path: str) -> sqlite3.Connection:
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("PRAGMA foreign_keys=ON")
+
     return connection
 
 
 def init_schema(db_path: str) -> None:
-    """Create the segments table if it does not already exist.
+    """
+    Create the segments table if it does not already exist.
 
     Safe to call multiple times (uses CREATE TABLE IF NOT EXISTS).
 
@@ -44,12 +47,12 @@ def init_schema(db_path: str) -> None:
     connection.execute(
         """
         CREATE TABLE IF NOT EXISTS segments (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            path       TEXT    NOT NULL UNIQUE,
-            start_ts   TEXT    NOT NULL,
-            end_ts     TEXT,
-            size_bytes INTEGER,
-            is_synced  INTEGER NOT NULL DEFAULT 0
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            path              TEXT    NOT NULL UNIQUE,
+            start_timestamp   TEXT    NOT NULL,
+            end_timestamp     TEXT,
+            size_bytes        INTEGER,
+            is_synced         INTEGER NOT NULL DEFAULT 0
         )
         """
     )
@@ -60,17 +63,18 @@ def init_schema(db_path: str) -> None:
 def insert_segment(
     connection: sqlite3.Connection,
     path: str,
-    start_ts: datetime,
+    start_timestamp: datetime,
 ) -> int:
-    """Insert a new segment row when recording begins.
+    """
+    Insert a new segment row when recording begins.
 
-    end_ts and size_bytes are left NULL until the segment is finalised
+    end_timestamp and size_bytes are left NULL until the segment is finalised
     by calling finalise_segment().
 
     Args:
         connection: Open database connection.
         path: Absolute filesystem path of the segment file.
-        start_ts: UTC datetime at which recording of this segment started.
+        start_timestamp: UTC datetime at which recording of this segment started.
 
     Returns:
         The auto-assigned row ID of the new segment.
@@ -79,27 +83,29 @@ def insert_segment(
         sqlite3.IntegrityError: If a segment with the same path already exists.
     """
     cursor = connection.execute(
-        "INSERT INTO segments (path, start_ts) VALUES (:path, :start_ts)",
-        {"path": path, "start_ts": start_ts.isoformat()},
+        "INSERT INTO segments (path, start_timestamp) VALUES (:path, :start_timestamp)",
+        {"path": path, "start_timestamp": start_timestamp.isoformat()},
     )
     connection.commit()
+
     return cursor.lastrowid
 
 
 def finalise_segment(
     connection: sqlite3.Connection,
     segment_id: int,
-    end_ts: datetime,
+    end_timestamp: datetime,
     size_bytes: int,
 ) -> None:
-    """Update a segment row with its end timestamp and file size.
+    """
+    Update a segment row with its end timestamp and file size.
 
     Called by the recorder immediately after a segment file is closed.
 
     Args:
         connection: Open database connection.
         segment_id: Row ID returned by insert_segment().
-        end_ts: UTC datetime at which recording of this segment ended.
+        end_timestamp: UTC datetime at which recording of this segment ended.
         size_bytes: Size of the completed MP4 file in bytes.
 
     Raises:
@@ -108,12 +114,12 @@ def finalise_segment(
     connection.execute(
         """
         UPDATE segments
-           SET end_ts     = :end_ts,
-               size_bytes = :size_bytes
+           SET end_timestamp = :end_timestamp,
+               size_bytes    = :size_bytes
          WHERE id = :segment_id
         """,
         {
-            "end_ts": end_ts.isoformat(),
+            "end_timestamp": end_timestamp.isoformat(),
             "size_bytes": size_bytes,
             "segment_id": segment_id,
         },
@@ -125,7 +131,8 @@ def mark_segment_synced(
     connection: sqlite3.Connection,
     segment_id: int,
 ) -> None:
-    """Mark a segment as successfully downloaded by the laptop sync agent.
+    """
+    Mark a segment as successfully downloaded by the laptop sync agent.
 
     Args:
         connection: Open database connection.
@@ -142,17 +149,19 @@ def mark_segment_synced(
 
 
 def count_unsynced_segments(connection: sqlite3.Connection) -> int:
-    """Return the number of completed segments not yet synced to the laptop.
+    """
+    Return the number of completed segments not yet synced to the laptop.
 
     Args:
         connection: Open database connection.
 
     Returns:
-        Count of segments where is_synced = 0 and end_ts IS NOT NULL.
+        Count of segments where is_synced = 0 and end_timestamp IS NOT NULL.
     """
     row = connection.execute(
-        "SELECT COUNT(*) FROM segments WHERE is_synced = 0 AND end_ts IS NOT NULL"
+        "SELECT COUNT(*) FROM segments WHERE is_synced = 0 AND end_timestamp IS NOT NULL"
     ).fetchone()
+
     return row[0]
 
 
@@ -160,23 +169,24 @@ def fetch_unsynced_segments(
     connection: sqlite3.Connection,
     limit: int,
 ) -> list[sqlite3.Row]:
-    """Fetch the oldest completed segments that have not been synced.
+    """
+    Fetch the oldest completed segments that have not been synced.
 
     Args:
         connection: Open database connection.
         limit: Maximum number of rows to return.
 
     Returns:
-        List of sqlite3.Row objects ordered by start_ts ascending.
-        Each row has columns: id, path, start_ts, end_ts, size_bytes.
+        List of sqlite3.Row objects ordered by start_timestamp ascending.
+        Each row has columns: id, path, start_timestamp, end_timestamp, size_bytes.
     """
     return connection.execute(
         """
-        SELECT id, path, start_ts, end_ts, size_bytes
+        SELECT id, path, start_timestamp, end_timestamp, size_bytes
           FROM segments
          WHERE is_synced = 0
-           AND end_ts IS NOT NULL
-         ORDER BY start_ts ASC
+           AND end_timestamp IS NOT NULL
+         ORDER BY start_timestamp ASC
          LIMIT :limit
         """,
         {"limit": limit},
@@ -188,7 +198,8 @@ def fetch_oldest_synced_segments(
     min_age_hours: int,
     limit: int,
 ) -> list[sqlite3.Row]:
-    """Fetch the oldest synced segments that are safe to delete locally.
+    """
+    Fetch the oldest synced segments that are safe to delete locally.
 
     Only returns segments older than min_age_hours to prevent the storage
     manager from deleting a segment the recorder or sync agent is still using.
@@ -200,24 +211,21 @@ def fetch_oldest_synced_segments(
         limit: Maximum number of rows to return.
 
     Returns:
-        List of sqlite3.Row objects ordered by start_ts ascending.
+        List of sqlite3.Row objects ordered by start_timestamp ascending.
         Each row has columns: id, path, size_bytes.
     """
-    cutoff = datetime.utcnow().replace(
-        hour=datetime.utcnow().hour - min_age_hours
-        if datetime.utcnow().hour >= min_age_hours
-        else 0
-    )
+    cutoff = (datetime.now(tz=timezone.utc) - timedelta(hours=min_age_hours)).isoformat()
+
     return connection.execute(
         """
         SELECT id, path, size_bytes
           FROM segments
          WHERE is_synced = 1
-           AND start_ts < :cutoff
-         ORDER BY start_ts ASC
+           AND start_timestamp < :cutoff
+         ORDER BY start_timestamp ASC
          LIMIT :limit
         """,
-        {"cutoff": cutoff.isoformat(), "limit": limit},
+        {"cutoff": cutoff, "limit": limit},
     ).fetchall()
 
 
@@ -225,7 +233,8 @@ def delete_segment_record(
     connection: sqlite3.Connection,
     segment_id: int,
 ) -> None:
-    """Remove a segment row from the database after the file has been deleted.
+    """
+    Remove a segment row from the database after the file has been deleted.
 
     Args:
         connection: Open database connection.
