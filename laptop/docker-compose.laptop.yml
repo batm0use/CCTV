@@ -1,0 +1,10 @@
+services:
+  cctv-sync:
+    build: .
+    command: python3 manage.py run-sync
+    restart: unless-stopped
+    volumes:
+      - ./sync.conf:/app/sync.conf:ro
+      - ${LOCAL_FOOTAGE_DIR:-/footage-backup}:/footage-backup
+    environment:
+      - PYTHONUNBUFFERED=1
