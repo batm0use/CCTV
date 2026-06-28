@@ -4,10 +4,10 @@ services:
     command: python3 manage.py run-main
     restart: unless-stopped
     privileged: true
-    devices:
-      - /dev/video0:/dev/video0
     volumes:
+      - /dev:/dev
       - /dev/shm:/dev/shm
+      - /run/udev:/run/udev:ro
       - footage_data:/var/lib/cctv/footage
       - state_data:/var/lib/cctv
       - ./cctv.conf:/app/cctv.conf:ro
