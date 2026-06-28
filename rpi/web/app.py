@@ -7,9 +7,7 @@ from fastapi import FastAPI
 from fastapi.templating import Jinja2Templates
 
 from shared.config import AppConfig
-from web.routers.api import build_api_router
-from web.routers.footage import build_footage_router
-from web.routers.live import build_live_router
+from web.routers import all_routers
 
 TEMPLATES_DIR: Path = Path(__file__).parent / "templates"
 
@@ -21,8 +19,8 @@ def build_app(
     """
     Create and configure the FastAPI application instance.
 
-    Registers all routers and passes config and the shared DB connection
-    as dependencies via router factory functions.
+    Stores config, db_connection, and templates on app.state so routers
+    can access them via request.app.state without constructor injection.
 
     Args:
         config: Application configuration loaded from cctv.conf.
@@ -31,17 +29,12 @@ def build_app(
     Returns:
         Configured FastAPI application ready for Uvicorn.
     """
-    templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
     application = FastAPI(title="CCTV", docs_url=None, redoc_url=None)
+    application.state.config = config
+    application.state.db_connection = db_connection
+    application.state.templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
-    application.include_router(build_live_router(config=config, templates=templates))
-    application.include_router(
-        build_footage_router(
-            config=config,
-            db_connection=db_connection,
-            templates=templates,
-        )
-    )
-    application.include_router(build_api_router(config=config, db_connection=db_connection))
+    for router in all_routers:
+        application.include_router(router)
 
     return application
