@@ -29,10 +29,7 @@ async def footage_browser(request: Request, page: int = 1):  # noqa: ANN202
         HTML TemplateResponse for footage.html.
     """
     config = request.app.state.config
-    db_connection = request.app.state.db_connection
-
     all_segments, total_count = list_all_segments_paginated(
-        db_connection=db_connection,
         page=page,
         page_size=config.web.footage_page_size,
     )
@@ -85,11 +82,9 @@ async def download_segment(
         HTTPException 400: If the resolved path escapes footage_dir.
         HTTPException 404: If the segment file does not exist on disk.
     """
-    footage_dir = request.app.state.config.recording.footage_dir
-
     try:
         segment_file = resolve_segment_file(
-            footage_dir=footage_dir,
+            footage_dir=request.app.state.config.recording.footage_dir,
             year=year,
             month=month,
             day=day,
