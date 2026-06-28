@@ -241,7 +241,21 @@ cd /path/to/CCTV/laptop
 cp sync.conf.example sync.conf
 # Edit sync.conf — set rpi_base_url and local_footage_dir
 
-docker compose -f docker-compose.laptop.yml up -d
+docker compose -f docker-compose.laptop.yml up -d       # start
+docker compose -f docker-compose.laptop.yml logs -f     # follow logs
+docker compose -f docker-compose.laptop.yml down        # stop
 ```
 
 The agent runs every 5 minutes (configurable). When more than 50 segments are unsynced it downloads up to 20 per cycle; when caught up it downloads 1 per cycle. Batch size is capped by available disk space.
+
+### macOS with Colima
+
+Colima does not bundle the Docker Compose plugin. Install it once:
+
+```bash
+brew install docker-compose
+mkdir -p ~/.docker/cli-plugins
+ln -sfn $(brew --prefix)/opt/docker-compose/bin/docker-compose ~/.docker/cli-plugins/docker-compose
+```
+
+Verify with `docker compose version`, then run the commands above normally.
