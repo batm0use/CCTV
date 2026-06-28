@@ -1,0 +1,14 @@
+fastapi>=0.111
+uvicorn[standard]>=0.29
+jinja2>=3.1
+python-multipart>=0.0.9
+
+# picamera2 is installed via apt (python3-picamera2), not pip.
+# Create the venv with --system-site-packages so it is picked up:
+#   python3 -m venv --system-site-packages venv
+# Or use the Dockerfile which installs system packages before pip deps.
+
+# Dev/linting (not installed in Docker image)
+# black
+# isort
+# ruff

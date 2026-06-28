@@ -1,0 +1,37 @@
+# CCTV configuration — copy this file to cctv.conf and fill in your values.
+# cctv.conf is gitignored and mounted into the Docker container as read-only.
+
+[camera]
+resolution = [1280, 720]    # [width, height] — change to [1920, 1080] for 1080p
+fps = 15                    # recording framerate; 15 is sufficient for CCTV use
+sensor_mode = 0             # 0 = libcamera auto; IMX219 supports modes 0-7
+awb_mode = "auto"
+
+[recording]
+segment_duration_minutes = 10
+footage_dir = "/var/lib/cctv/footage"
+
+[stream]
+stream_fps = 5              # MJPEG live view framerate (independent of recording fps)
+stream_resolution = [640, 360]
+# jpeg_quality: JPEG scale 1–95
+#   1  = lowest quality, smallest file size
+#   70 = good quality, ~30–60 KB per frame at 640x360 (default)
+#   85 = high quality
+#   95 = near-lossless
+jpeg_quality = 70
+
+[storage]
+state_db = "/var/lib/cctv/state.db"
+# delete_threshold_pct: delete oldest synced segments when disk exceeds this %
+# Example on 64 GB card: 90% = begin deleting at 57.6 GB used
+delete_threshold_pct = 90
+check_interval_seconds = 60
+# min_segment_age_hours: never delete segments newer than this (prevents race
+# conditions between the recorder, sync agent, and storage manager)
+min_segment_age_hours = 2
+
+[web]
+host = "0.0.0.0"
+port = 8080
+footage_page_size = 50
