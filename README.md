@@ -68,13 +68,3 @@ docker compose -f docker-compose.laptop.yml up -d
 ```
 
 The agent runs every 5 minutes (configurable). When more than 50 segments are unsynced it downloads up to 20 per cycle; when caught up it downloads 1 per cycle.
-
----
-
-## Branch strategy
-
-| Branch | Purpose |
-|--------|---------|
-| `main` | Stable — only updated from `triage` after system testing |
-| `triage` | Integration — features merge here frequently |
-| `feature/*` | One branch per feature; merged into `triage` |
