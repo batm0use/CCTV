@@ -4,13 +4,12 @@ import sqlite3
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from shared.config import AppConfig
-from web.routes.api import build_api_router
-from web.routes.footage import build_footage_router
-from web.routes.live import build_live_router
+from web.routers.api import build_api_router
+from web.routers.footage import build_footage_router
+from web.routers.live import build_live_router
 
 TEMPLATES_DIR: Path = Path(__file__).parent / "templates"
 
@@ -19,10 +18,11 @@ def build_app(
     config: AppConfig,
     db_connection: sqlite3.Connection,
 ) -> FastAPI:
-    """Create and configure the FastAPI application instance.
+    """
+    Create and configure the FastAPI application instance.
 
-    Registers all route groups and passes config and the shared DB
-    connection as dependencies via router-level state.
+    Registers all routers and passes config and the shared DB connection
+    as dependencies via router factory functions.
 
     Args:
         config: Application configuration loaded from cctv.conf.
@@ -34,9 +34,7 @@ def build_app(
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
     application = FastAPI(title="CCTV", docs_url=None, redoc_url=None)
 
-    application.include_router(
-        build_live_router(config=config, templates=templates)
-    )
+    application.include_router(build_live_router(config=config, templates=templates))
     application.include_router(
         build_footage_router(
             config=config,
@@ -44,8 +42,6 @@ def build_app(
             templates=templates,
         )
     )
-    application.include_router(
-        build_api_router(config=config, db_connection=db_connection)
-    )
+    application.include_router(build_api_router(config=config, db_connection=db_connection))
 
     return application

@@ -51,7 +51,8 @@ class AppConfig:
 
 
 def load_config(config_path: Path) -> AppConfig:
-    """Load and parse the TOML configuration file into an AppConfig instance.
+    """
+    Load and parse the TOML configuration file into an AppConfig instance.
 
     Args:
         config_path: Filesystem path to cctv.conf.
@@ -86,9 +87,8 @@ def load_config(config_path: Path) -> AppConfig:
     stream_resolution_raw = stream_raw.get("stream_resolution", [640, 360])
     jpeg_quality = stream_raw.get("jpeg_quality", 70)
     if not 1 <= jpeg_quality <= 95:
-        raise ValueError(
-            f"stream.jpeg_quality must be 1–95 (got {jpeg_quality})"
-        )
+        raise ValueError(f"stream.jpeg_quality must be 1–95 (got {jpeg_quality})")
+
     stream = StreamConfig(
         stream_fps=stream_raw.get("stream_fps", 5),
         stream_resolution=(stream_resolution_raw[0], stream_resolution_raw[1]),

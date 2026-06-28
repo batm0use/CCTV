@@ -26,7 +26,7 @@
     <a href="/footage/{{ segment_parts[0] }}/{{ segment_parts[1] }}/{{ segment_parts[2] }}/{{ segment_filename }}">
       {{ segment_filename }}
     </a>
-    <span class="segment-meta">{{ segment.start_ts[:19].replace('T', ' ') }} UTC</span>
+    <span class="segment-meta">{{ segment.start_timestamp[:19].replace('T', ' ') }} UTC</span>
     {% if segment.size_bytes %}
     <span class="segment-meta">{{ (segment.size_bytes / 1_048_576) | round(1) }} MB</span>
     {% endif %}

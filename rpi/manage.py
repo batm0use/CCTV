@@ -12,7 +12,8 @@ LOG_FORMAT: str = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 
 
 def _setup_logging(level: str = "INFO") -> None:
-    """Configure root logger to write to stdout.
+    """
+    Configure root logger to write to stdout.
 
     Args:
         level: Logging level name (e.g. "INFO", "DEBUG", "WARNING").
@@ -25,7 +26,8 @@ def _setup_logging(level: str = "INFO") -> None:
 
 
 def _load_config(config_path: Path):  # noqa: ANN202
-    """Load AppConfig from disk, printing a helpful message on failure.
+    """
+    Load AppConfig from disk, printing a helpful message on failure.
 
     Args:
         config_path: Path to cctv.conf.
@@ -42,11 +44,13 @@ def _load_config(config_path: Path):  # noqa: ANN202
             file=sys.stderr,
         )
         sys.exit(1)
+
     return load_config(config_path)
 
 
 def cmd_init_db(args: argparse.Namespace) -> None:
-    """Create the SQLite state database schema.
+    """
+    Create the SQLite state database schema.
 
     Safe to run multiple times; existing data is not modified.
 
@@ -61,7 +65,8 @@ def cmd_init_db(args: argparse.Namespace) -> None:
 
 
 def cmd_run_main(args: argparse.Namespace) -> None:
-    """Start the recorder thread and the web server (Uvicorn/FastAPI).
+    """
+    Start the recorder thread and the web server (Uvicorn/FastAPI).
 
     Blocks until SIGTERM or KeyboardInterrupt. On shutdown, signals the
     recorder to finish the current segment before exiting.
@@ -104,8 +109,6 @@ def cmd_run_main(args: argparse.Namespace) -> None:
         log_level="info",
     )
     server = uvicorn.Server(config=server_config)
-
-    # Uvicorn handles SIGTERM itself; we override to also stop the recorder
     server.install_signal_handlers = lambda: None  # type: ignore[method-assign]
 
     server.run()
@@ -116,7 +119,8 @@ def cmd_run_main(args: argparse.Namespace) -> None:
 
 
 def cmd_run_storage(args: argparse.Namespace) -> None:
-    """Start the storage manager loop.
+    """
+    Start the storage manager loop.
 
     Runs until SIGTERM or KeyboardInterrupt.
 
@@ -133,14 +137,16 @@ def cmd_run_storage(args: argparse.Namespace) -> None:
 
 
 def cmd_status(args: argparse.Namespace) -> None:
-    """Print a brief status summary from the database.
+    """
+    Print a brief status summary from the database.
 
     Args:
         args: Parsed CLI arguments (expects args.config).
     """
+    import shutil
+
     config = _load_config(args.config)
     from shared.state import count_unsynced_segments, open_connection
-    import shutil
 
     db_connection = open_connection(config.storage.state_db)
     unsynced_count = count_unsynced_segments(db_connection)
@@ -150,20 +156,20 @@ def cmd_status(args: argparse.Namespace) -> None:
     used_pct = disk_usage.used / disk_usage.total * 100
 
     print(f"Unsynced segments : {unsynced_count}")
-    print(f"Disk usage        : {disk_usage.used // 1_073_741_824} GB / "
-          f"{disk_usage.total // 1_073_741_824} GB ({used_pct:.1f}%)")
+    print(
+        f"Disk usage        : {disk_usage.used // 1_073_741_824} GB / "
+        f"{disk_usage.total // 1_073_741_824} GB ({used_pct:.1f}%)"
+    )
 
 
 def _build_argument_parser() -> argparse.ArgumentParser:
-    """Build the top-level CLI argument parser with subcommands.
+    """
+    Build the top-level CLI argument parser with subcommands.
 
     Returns:
         Configured ArgumentParser instance.
     """
-    parser = argparse.ArgumentParser(
-        prog="manage.py",
-        description="CCTV management CLI",
-    )
+    parser = argparse.ArgumentParser(prog="manage.py", description="CCTV management CLI")
     parser.add_argument(
         "--config",
         type=Path,
@@ -172,7 +178,6 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     )
 
     subparsers = parser.add_subparsers(dest="command", required=True)
-
     subparsers.add_parser("init-db", help="Initialise the SQLite state database")
     subparsers.add_parser("run-main", help="Start recorder + web server")
     subparsers.add_parser("run-storage", help="Start storage manager")

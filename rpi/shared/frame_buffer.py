@@ -8,7 +8,8 @@ _latest_frame: bytes = b""
 
 
 def write(frame: bytes) -> None:
-    """Replace the latest JPEG frame in the shared buffer.
+    """
+    Replace the latest JPEG frame in the shared buffer.
 
     Called from the recorder thread every 1/stream_fps seconds.
     Only the most recent frame is retained; older frames are discarded.
@@ -22,7 +23,8 @@ def write(frame: bytes) -> None:
 
 
 def read() -> bytes:
-    """Return the latest JPEG frame from the shared buffer.
+    """
+    Return the latest JPEG frame from the shared buffer.
 
     Returns an empty bytes object if no frame has been written yet.
     Safe to call from any thread, including the async web handler.
