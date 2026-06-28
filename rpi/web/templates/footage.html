@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Footage — CCTV{% endblock %}
+{% block head %}
+<style>
+  .footage-list { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  .segment-row { display: flex; align-items: center; gap: 1rem; padding: 0.6rem 0.8rem;
+                  background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 4px; }
+  .segment-row a { color: #7cb8f0; text-decoration: none; font-size: 0.9rem; }
+  .segment-row a:hover { text-decoration: underline; }
+  .segment-meta { font-size: 0.78rem; color: #888; }
+  .synced-badge { font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 3px;
+                   background: #1e3a1e; color: #6fbf6f; }
+  .pagination { margin-top: 1.5rem; display: flex; gap: 1rem; }
+  .pagination a { color: #7cb8f0; text-decoration: none; }
+  video { width: 100%; max-width: 900px; display: block; margin-top: 1rem; background: #000; }
+</style>
+{% endblock %}
+{% block content %}
+<p class="segment-meta">{{ total_count }} recording{{ 's' if total_count != 1 }} — page {{ page }} of {{ total_pages }}</p>
+
+<div class="footage-list">
+  {% for segment in all_segments %}
+  {% set segment_filename = segment.path.split('/')[-1] %}
+  {% set segment_parts = segment.path.split('/')[-4:] %}
+  <div class="segment-row">
+    <a href="/footage/{{ segment_parts[0] }}/{{ segment_parts[1] }}/{{ segment_parts[2] }}/{{ segment_filename }}">
+      {{ segment_filename }}
+    </a>
+    <span class="segment-meta">{{ segment.start_ts[:19].replace('T', ' ') }} UTC</span>
+    {% if segment.size_bytes %}
+    <span class="segment-meta">{{ (segment.size_bytes / 1_048_576) | round(1) }} MB</span>
+    {% endif %}
+    {% if segment.is_synced %}
+    <span class="synced-badge">synced</span>
+    {% endif %}
+  </div>
+  {% else %}
+  <p style="color:#888">No recordings yet.</p>
+  {% endfor %}
+</div>
+
+<div class="pagination">
+  {% if page > 1 %}
+  <a href="/footage?page={{ page - 1 }}">← Newer</a>
+  {% endif %}
+  {% if page < total_pages %}
+  <a href="/footage?page={{ page + 1 }}">Older →</a>
+  {% endif %}
+</div>
+{% endblock %}

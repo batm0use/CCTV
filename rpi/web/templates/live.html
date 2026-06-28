@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Live — CCTV{% endblock %}
+{% block head %}
+<style>
+  .stream-container { display: flex; justify-content: center; margin-top: 1rem; }
+  .stream-container img { max-width: 100%; border: 1px solid #333; background: #000; }
+  .stream-label { text-align: center; margin-top: 0.5rem; color: #888; font-size: 0.8rem; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="stream-container">
+  <img src="/stream.mjpeg" alt="Live feed">
+</div>
+<p class="stream-label">Live — refreshes automatically</p>
+{% endblock %}
