@@ -39,7 +39,7 @@ async def live_page(request: Request):  # noqa: ANN202
     Returns:
         HTML TemplateResponse for live.html.
     """
-    return request.app.state.templates.TemplateResponse("live.html", {"request": request})
+    return request.app.state.templates.TemplateResponse(request, "live.html")
 
 
 @router.get("/stream.mjpeg")

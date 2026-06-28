@@ -36,9 +36,9 @@ async def footage_browser(request: Request, page: int = 1):  # noqa: ANN202
     total_pages = max(1, (total_count + config.web.footage_page_size - 1) // config.web.footage_page_size)
 
     return request.app.state.templates.TemplateResponse(
+        request,
         "footage.html",
         {
-            "request": request,
             "all_segments": all_segments,
             "page": page,
             "page_size": config.web.footage_page_size,
