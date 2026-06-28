@@ -1,0 +1,136 @@
+from __future__ import annotations
+
+import logging
+import shutil
+import time
+from pathlib import Path
+
+from shared.config import AppConfig
+from shared.state import (
+    delete_segment_record,
+    fetch_oldest_synced_segments,
+    open_connection,
+)
+
+logger = logging.getLogger(__name__)
+
+DELETION_BATCH_SIZE: int = 10
+
+
+class StorageManager:
+    """Monitors disk usage and deletes locally confirmed-synced segments.
+
+    Runs as a separate Docker service (cctv-storage). Does not push or
+    sync footage — that is the responsibility of the laptop sync agent.
+    Only deletes segments that have been marked is_synced = 1 by the
+    laptop, and only when disk usage exceeds delete_threshold_pct.
+
+    Attributes:
+        config: Application configuration loaded from cctv.conf.
+    """
+
+    def __init__(self, config: AppConfig) -> None:
+        """Initialise the storage manager with application config.
+
+        Args:
+            config: Application configuration loaded from cctv.conf.
+        """
+        self.config = config
+
+    def run(self) -> None:
+        """Start the polling loop. Blocks until KeyboardInterrupt or SIGTERM.
+
+        Wakes every check_interval_seconds and checks disk usage. If usage
+        exceeds delete_threshold_pct, deletes the oldest synced segments
+        in batches of DELETION_BATCH_SIZE until usage drops below the
+        threshold or no more eligible segments exist.
+        """
+        logger.info(
+            "Storage manager started (delete threshold: %d%%)",
+            self.config.storage.delete_threshold_pct,
+        )
+        db_connection = open_connection(self.config.storage.state_db)
+
+        try:
+            while True:
+                self._check_and_clean(db_connection)
+                time.sleep(self.config.storage.check_interval_seconds)
+        except (KeyboardInterrupt, SystemExit):
+            logger.info("Storage manager stopping")
+        finally:
+            db_connection.close()
+
+    def _check_and_clean(self, db_connection) -> None:  # noqa: ANN001
+        """Check disk usage and delete eligible segments if over threshold.
+
+        Args:
+            db_connection: Open SQLite connection for querying and deleting
+                segment records.
+        """
+        footage_dir = self.config.recording.footage_dir
+
+        try:
+            disk_usage = shutil.disk_usage(footage_dir)
+        except OSError as disk_error:
+            logger.error("Cannot read disk usage for %s: %s", footage_dir, disk_error)
+            return
+
+        used_pct = disk_usage.used / disk_usage.total * 100
+        logger.debug("Disk usage: %.1f%%", used_pct)
+
+        if used_pct < self.config.storage.delete_threshold_pct:
+            return
+
+        logger.warning(
+            "Disk at %.1f%% (threshold: %d%%) — deleting oldest synced segments",
+            used_pct,
+            self.config.storage.delete_threshold_pct,
+        )
+        self._delete_oldest_synced(db_connection)
+
+    def _delete_oldest_synced(self, db_connection) -> None:  # noqa: ANN001
+        """Delete the oldest synced segment files and their DB records.
+
+        Fetches up to DELETION_BATCH_SIZE synced segments older than
+        min_segment_age_hours and deletes each file plus its DB row.
+        Logs a warning if no eligible segments are found (disk is full
+        but nothing safe to delete exists).
+
+        Args:
+            db_connection: Open SQLite connection for segment queries.
+        """
+        all_eligible_segments = fetch_oldest_synced_segments(
+            connection=db_connection,
+            min_age_hours=self.config.storage.min_segment_age_hours,
+            limit=DELETION_BATCH_SIZE,
+        )
+
+        if not all_eligible_segments:
+            logger.warning(
+                "Disk over threshold but no synced segments are old enough to delete. "
+                "Ensure the laptop sync agent is running and confirming downloads."
+            )
+            return
+
+        for segment in all_eligible_segments:
+            segment_file = Path(segment["path"])
+            try:
+                if segment_file.exists():
+                    segment_file.unlink()
+                    logger.info(
+                        "Deleted local segment %s (%d bytes)",
+                        segment_file.name,
+                        segment["size_bytes"] or 0,
+                    )
+            except OSError as delete_error:
+                logger.error(
+                    "Failed to delete %s: %s",
+                    segment_file,
+                    delete_error,
+                )
+                continue
+
+            delete_segment_record(
+                connection=db_connection,
+                segment_id=segment["id"],
+            )
