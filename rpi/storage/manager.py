@@ -18,7 +18,8 @@ DELETION_BATCH_SIZE: int = 10
 
 
 class StorageManager:
-    """Monitors disk usage and deletes locally confirmed-synced segments.
+    """
+    Monitors disk usage and deletes locally confirmed-synced segments.
 
     Runs as a separate Docker service (cctv-storage). Does not push or
     sync footage — that is the responsibility of the laptop sync agent.
@@ -30,7 +31,8 @@ class StorageManager:
     """
 
     def __init__(self, config: AppConfig) -> None:
-        """Initialise the storage manager with application config.
+        """
+        Initialise the storage manager with application config.
 
         Args:
             config: Application configuration loaded from cctv.conf.
@@ -38,7 +40,8 @@ class StorageManager:
         self.config = config
 
     def run(self) -> None:
-        """Start the polling loop. Blocks until KeyboardInterrupt or SIGTERM.
+        """
+        Start the polling loop. Blocks until KeyboardInterrupt or SIGTERM.
 
         Wakes every check_interval_seconds and checks disk usage. If usage
         exceeds delete_threshold_pct, deletes the oldest synced segments
@@ -57,11 +60,13 @@ class StorageManager:
                 time.sleep(self.config.storage.check_interval_seconds)
         except (KeyboardInterrupt, SystemExit):
             logger.info("Storage manager stopping")
+            raise
         finally:
             db_connection.close()
 
     def _check_and_clean(self, db_connection) -> None:  # noqa: ANN001
-        """Check disk usage and delete eligible segments if over threshold.
+        """
+        Check disk usage and delete eligible segments if over threshold.
 
         Args:
             db_connection: Open SQLite connection for querying and deleting
@@ -71,8 +76,8 @@ class StorageManager:
 
         try:
             disk_usage = shutil.disk_usage(footage_dir)
-        except OSError as disk_error:
-            logger.error("Cannot read disk usage for %s: %s", footage_dir, disk_error)
+        except OSError:
+            logger.exception("Cannot read disk usage for %s", footage_dir)
             return
 
         used_pct = disk_usage.used / disk_usage.total * 100
@@ -89,12 +94,12 @@ class StorageManager:
         self._delete_oldest_synced(db_connection)
 
     def _delete_oldest_synced(self, db_connection) -> None:  # noqa: ANN001
-        """Delete the oldest synced segment files and their DB records.
+        """
+        Delete the oldest synced segment files and their DB records.
 
         Fetches up to DELETION_BATCH_SIZE synced segments older than
         min_segment_age_hours and deletes each file plus its DB row.
-        Logs a warning if no eligible segments are found (disk is full
-        but nothing safe to delete exists).
+        Logs a warning if no eligible segments are found.
 
         Args:
             db_connection: Open SQLite connection for segment queries.
@@ -122,12 +127,8 @@ class StorageManager:
                         segment_file.name,
                         segment["size_bytes"] or 0,
                     )
-            except OSError as delete_error:
-                logger.error(
-                    "Failed to delete %s: %s",
-                    segment_file,
-                    delete_error,
-                )
+            except OSError:
+                logger.exception("Failed to delete %s", segment_file)
                 continue
 
             delete_segment_record(
