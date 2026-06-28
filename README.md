@@ -34,7 +34,7 @@ Reboot, then verify the camera is detected:
 
 ```bash
 rpicam-still --list-cameras
-# Expected output: "0 : imx219 [3280x2464 ...]"
+# Expected: "0 : imx219 [3280x2464 ...]"
 ```
 
 ### 2 — Install Docker
@@ -65,60 +65,139 @@ Edit `cctv.conf` as needed. Defaults record at 720p 15fps (~8.6 GB/day, 7 days o
 ### 4 — Start
 
 ```bash
+cd ~/CCTV/rpi
 sudo docker compose -f docker-compose.rpi.yml up -d
 ```
 
 On first run Docker builds the image (~5 minutes, downloads picamera2 and dependencies from the Raspberry Pi apt repository).
 
-### 5 — Check logs
+### 5 — Verify
 
 ```bash
 sudo docker compose -f docker-compose.rpi.yml logs -f
 ```
 
-Expected output once running:
+Expected output once healthy:
 
 ```
 cctv-storage-1  | INFO storage.manager: Storage manager started (delete threshold: 90%)
 cctv-main-1     | INFO:     Uvicorn running on http://0.0.0.0:8080
 cctv-main-1     | INFO recorder.recorder: Camera started at (1280, 720)
-cctv-main-1     | INFO recorder.recorder: Started segment 2026-06-28_22-00-00.mp4
+cctv-main-1     | INFO recorder.recorder: Started segment 2026-06-28_23-02-49.mp4
 ```
 
-### Access
+---
 
-| URL | Description |
+## Accessing the web UI
+
+### On the local network
+
+| URL | What you get |
 |-----|-------------|
 | `http://<rpi-ip>:8080/live` | MJPEG live stream |
-| `http://<rpi-ip>:8080/footage` | Recorded footage browser |
-| `http://<rpi-ip>:8080/api/status` | JSON status (disk, unsynced count) |
+| `http://<rpi-ip>:8080/footage` | Paginated footage browser with video playback |
+| `http://<rpi-ip>:8080/api/status` | JSON — disk usage + unsynced segment count |
+| `http://<rpi-ip>:8080/api/all_segment` | JSON — list of unsynced segments |
+| `http://<rpi-ip>:8080/api/all_segment/count` | JSON — `{"count": N}` |
 
-Via RPi Connect: use the HTTPS URL from your RPi Connect dashboard — no port forwarding needed.
+Find your RPi's IP with `hostname -I` on the Pi.
 
-### Stop / restart
+### Via RPi Connect (remote access from anywhere)
+
+RPi Connect provides a secure HTTPS tunnel to your Pi with no port forwarding or VPN required.
+
+1. On the RPi, install and enable RPi Connect:
+   ```bash
+   sudo apt install rpi-connect
+   rpi-connect on
+   ```
+
+2. Sign in with your Raspberry Pi ID:
+   ```bash
+   rpi-connect signin
+   ```
+   This prints a URL — open it in your browser and sign in.
+
+3. Open [connect.raspberrypi.com](https://connect.raspberrypi.com) in any browser. Your Pi appears in the device list.
+
+4. Click **Remote shell** to get a terminal, or use the **Port forwarding** feature to access the web UI:
+   - Under your device, add a remote port forward for port `8080`
+   - The dashboard gives you a unique HTTPS URL like `https://connect.raspberrypi.com/v/xxxxx`
+   - Open that URL to reach `/live`, `/footage`, and the API from anywhere
+
+RPi Connect uses your Raspberry Pi account as authentication — no extra credentials to manage.
+
+---
+
+## Day-to-day commands (run on the RPi)
+
+### Start / stop
 
 ```bash
-sudo docker compose -f docker-compose.rpi.yml down   # stop
-sudo docker compose -f docker-compose.rpi.yml up -d  # start
+cd ~/CCTV/rpi
+
+sudo docker compose -f docker-compose.rpi.yml up -d      # start in background
+sudo docker compose -f docker-compose.rpi.yml down       # stop
+sudo docker compose -f docker-compose.rpi.yml restart    # restart both containers
 ```
 
-After a `git pull` that changes the `Dockerfile` or Python code, add `--build` to force a rebuild:
+### Logs
 
 ```bash
+sudo docker compose -f docker-compose.rpi.yml logs -f              # follow all logs
+sudo docker compose -f docker-compose.rpi.yml logs -f cctv-main    # recorder + web only
+sudo docker compose -f docker-compose.rpi.yml logs -f cctv-storage # storage manager only
+sudo docker compose -f docker-compose.rpi.yml logs --tail 50       # last 50 lines
+```
+
+### Update code
+
+```bash
+cd ~/CCTV/rpi
+git pull
 sudo docker compose -f docker-compose.rpi.yml up -d --build
 ```
 
-Containers restart automatically on reboot (`restart: unless-stopped`).
+If the Dockerfile changed (new apt packages, etc.) add `--no-cache` to force a full rebuild:
 
-### Storage
+```bash
+sudo docker compose -f docker-compose.rpi.yml build --no-cache
+sudo docker compose -f docker-compose.rpi.yml up -d
+```
+
+### Container status
+
+```bash
+sudo docker compose -f docker-compose.rpi.yml ps        # running containers
+sudo docker stats                                        # live CPU / RAM / network
+```
+
+### Inspect footage volume
+
+```bash
+sudo docker run --rm -v rpi_footage_data:/footage debian:bookworm-slim ls /footage
+```
+
+### Camera check (outside Docker)
+
+```bash
+rpicam-still --list-cameras        # verify camera is detected
+rpicam-still -o /tmp/test.jpg      # capture a test frame
+```
+
+---
+
+## Storage
 
 Footage is stored in a named Docker volume at `/var/lib/cctv/footage/YYYY/MM/DD/`.
 
-At 90% disk usage (~57 GB on a 64 GB card) the storage manager deletes the oldest segments that have already been confirmed synced by the laptop agent. Segments not yet synced are never deleted regardless of disk pressure.
+At 90% disk usage (~57 GB on a 64 GB card) the storage manager deletes the oldest segments already confirmed synced by the laptop agent. Segments not yet synced are never deleted regardless of disk pressure.
 
-### Troubleshooting
+---
 
-**`IsADirectoryError: /app/cctv.conf`** — Docker created a directory because `cctv.conf` was missing on the host when the container started:
+## Troubleshooting
+
+**`IsADirectoryError: /app/cctv.conf`** — Docker created a directory because `cctv.conf` was missing when the container first started:
 
 ```bash
 sudo docker compose -f docker-compose.rpi.yml down
@@ -127,27 +206,35 @@ cp ~/CCTV/rpi/cctv.conf.example ~/CCTV/rpi/cctv.conf
 sudo docker compose -f docker-compose.rpi.yml up -d
 ```
 
-**`IndexError: list index out of range` in Picamera2** — libcamera can't enumerate cameras inside the container. Verify the camera works on the host first:
+**`IndexError: list index out of range` in Picamera2** — libcamera can't see the camera. Check host first:
 
 ```bash
 rpicam-still --list-cameras
 ```
 
-If the camera appears on the host but not in Docker, ensure the compose file mounts `/dev` and `/run/udev` (already the case in the current `docker-compose.rpi.yml`).
+If it shows the camera on the host but not in Docker, ensure `docker-compose.rpi.yml` mounts `/dev` and `/run/udev` (already the case in current config).
 
-**`sqlite3.OperationalError: unable to open database file`** — the container can't write to the `state_data` volume. The container must run as root (already the case); check that no `USER` directive is set in the Dockerfile.
+**`sqlite3.OperationalError: unable to open database file`** — volume permission issue. The container must run as root — check there is no `USER` directive in the Dockerfile.
 
-**`docker: command not found`** — Docker is not installed. Follow step 2 above.
+**`permission denied while trying to connect to the Docker API`** — prefix with `sudo`, or ensure your user is in the `docker` group:
 
-**`permission denied while trying to connect to the Docker API`** — run with `sudo`, or add your user to the `docker` group (step 2) and open a new shell.
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+**Old code still running after `git pull`** — force a rebuild:
+
+```bash
+sudo docker compose -f docker-compose.rpi.yml build --no-cache
+sudo docker compose -f docker-compose.rpi.yml up -d
+```
 
 ---
 
-## Laptop setup (`laptop/`)
+## Laptop sync (`laptop/`)
 
 The sync agent polls the RPi API, downloads new segments via HTTP, and confirms receipt. No SSH server is needed on the laptop.
-
-### Deploy
 
 ```bash
 cd /path/to/CCTV/laptop
