@@ -1,0 +1,24 @@
+# Laptop sync agent configuration — copy to sync.conf and fill in your values.
+# sync.conf is gitignored and mounted into the Docker container as read-only.
+
+[sync]
+# HTTP base URL of the RPi web server.
+# On your home LAN: http://192.168.1.XXX:8080
+# Remotely via RPi Connect: use the URL shown in RPi Connect dashboard
+rpi_base_url = "http://192.168.1.XXX:8080"
+
+# Local directory where downloaded footage will be stored.
+# On macOS: something like /Users/YOUR_NAME/cctv-backup
+# The directory is created automatically if it does not exist.
+local_footage_dir = "/footage-backup"
+
+# How long to sleep between sync cycles (seconds). Default: 300 (5 minutes).
+sync_interval_seconds = 300
+
+# Batch size thresholds for dynamic batch sizing:
+#   unsynced > catchup_threshold  → download up to batch_hard_limit segments/cycle
+#   unsynced > trickle_threshold  → download up to batch_hard_limit/4 segments/cycle
+#   unsynced <= trickle_threshold → download 1 segment/cycle (nearly caught up)
+catchup_threshold = 50
+trickle_threshold = 5
+batch_hard_limit = 20
