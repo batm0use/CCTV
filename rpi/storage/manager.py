@@ -5,12 +5,9 @@ import shutil
 import time
 from pathlib import Path
 
+from shared import db
 from shared.config import AppConfig
-from shared.state import (
-    delete_segment_record,
-    fetch_oldest_synced_segments,
-    open_connection,
-)
+from shared.state import delete_segment_record, fetch_oldest_synced_segments
 
 logger = logging.getLogger(__name__)
 
@@ -52,25 +49,20 @@ class StorageManager:
             "Storage manager started (delete threshold: %d%%)",
             self.config.storage.delete_threshold_pct,
         )
-        db_connection = open_connection(self.config.storage.state_db)
 
         try:
             while True:
-                self._check_and_clean(db_connection)
+                self._check_and_clean()
                 time.sleep(self.config.storage.check_interval_seconds)
         except (KeyboardInterrupt, SystemExit):
             logger.info("Storage manager stopping")
             raise
         finally:
-            db_connection.close()
+            db.close()
 
-    def _check_and_clean(self, db_connection) -> None:  # noqa: ANN001
+    def _check_and_clean(self) -> None:
         """
         Check disk usage and delete eligible segments if over threshold.
-
-        Args:
-            db_connection: Open SQLite connection for querying and deleting
-                segment records.
         """
         footage_dir = self.config.recording.footage_dir
 
@@ -91,21 +83,18 @@ class StorageManager:
             used_pct,
             self.config.storage.delete_threshold_pct,
         )
-        self._delete_oldest_synced(db_connection)
+        self._delete_oldest_synced()
 
-    def _delete_oldest_synced(self, db_connection) -> None:  # noqa: ANN001
+    def _delete_oldest_synced(self) -> None:
         """
         Delete the oldest synced segment files and their DB records.
 
         Fetches up to DELETION_BATCH_SIZE synced segments older than
         min_segment_age_hours and deletes each file plus its DB row.
         Logs a warning if no eligible segments are found.
-
-        Args:
-            db_connection: Open SQLite connection for segment queries.
         """
         all_eligible_segments = fetch_oldest_synced_segments(
-            connection=db_connection,
+            connection=db.get(),
             min_age_hours=self.config.storage.min_segment_age_hours,
             limit=DELETION_BATCH_SIZE,
         )
@@ -131,7 +120,4 @@ class StorageManager:
                 logger.exception("Failed to delete %s", segment_file)
                 continue
 
-            delete_segment_record(
-                connection=db_connection,
-                segment_id=segment["id"],
-            )
+            delete_segment_record(connection=db.get(), segment_id=segment["id"])

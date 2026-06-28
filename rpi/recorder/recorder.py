@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import io
 import logging
-import sqlite3
-import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,7 +10,7 @@ from picamera2 import Picamera2
 from picamera2.encoders import H264Encoder, Quality
 from picamera2.outputs import FileOutput
 
-from shared import frame_buffer, state
+from shared import db, frame_buffer, state
 from shared.config import AppConfig
 from shared.paths import ensure_segment_directory, segment_path
 
@@ -32,24 +30,17 @@ class Recorder:
 
     Attributes:
         config: Application configuration loaded from cctv.conf.
-        db_connection: Open SQLite connection for writing segment metadata.
     """
 
-    def __init__(
-        self,
-        config: AppConfig,
-        db_connection: sqlite3.Connection,
-    ) -> None:
+    def __init__(self, config: AppConfig) -> None:
         """
-        Initialise the recorder with config and a shared DB connection.
+        Initialise the recorder with application config.
 
         Args:
             config: Application configuration loaded from cctv.conf.
-            db_connection: Open SQLite connection in WAL mode.
         """
         self.config = config
-        self.db_connection = db_connection
-        self._stop_event: threading.Event = threading.Event()
+        self._stop_event = __import__("threading").Event()
         self._camera: Picamera2 | None = None
         self._current_segment_id: int | None = None
         self._current_segment_path: Path | None = None
@@ -168,7 +159,7 @@ class Recorder:
         )
 
         self._current_segment_id = state.insert_segment(
-            connection=self.db_connection,
+            connection=db.get(),
             path=str(new_segment_path),
             start_timestamp=segment_start_time,
         )
@@ -211,7 +202,7 @@ class Recorder:
         )
 
         state.finalise_segment(
-            connection=self.db_connection,
+            connection=db.get(),
             segment_id=self._current_segment_id,
             end_timestamp=segment_end_time,
             size_bytes=segment_file_size,
@@ -243,20 +234,3 @@ class Recorder:
             frame_buffer.write(jpeg_buffer.getvalue())
         except Exception as capture_error:
             logger.warning("Preview frame capture failed: %s", capture_error)
-
-
-def run_recorder(config: AppConfig, db_path: str) -> None:
-    """
-    Entry point called by manage.py to start the recorder in a thread.
-
-    Opens a dedicated DB connection for the recorder thread and blocks
-    until the recorder's stop event is set.
-
-    Args:
-        config: Application configuration loaded from cctv.conf.
-        db_path: Filesystem path to the SQLite state database.
-    """
-    db_connection = state.open_connection(db_path)
-    recorder = Recorder(config=config, db_connection=db_connection)
-    recorder.start()
-    db_connection.close()

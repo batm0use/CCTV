@@ -77,12 +77,11 @@ def cmd_run_main(args: argparse.Namespace) -> None:
     _setup_logging()
     config = _load_config(args.config)
 
-    from shared.state import init_schema, open_connection
+    from shared import db
     from recorder.recorder import Recorder
 
-    init_schema(config.storage.state_db)
-    db_connection = open_connection(config.storage.state_db)
-    recorder = Recorder(config=config, db_connection=db_connection)
+    db.init(config.storage.state_db)
+    recorder = Recorder(config=config)
 
     stop_event = threading.Event()
 
@@ -100,7 +99,7 @@ def cmd_run_main(args: argparse.Namespace) -> None:
     import uvicorn
     from web.app import build_app
 
-    application = build_app(config=config, db_connection=db_connection)
+    application = build_app(config=config)
 
     server_config = uvicorn.Config(
         app=application,
@@ -115,7 +114,7 @@ def cmd_run_main(args: argparse.Namespace) -> None:
 
     stop_event.wait()
     recorder_thread.join(timeout=60)
-    db_connection.close()
+    db.close()
 
 
 def cmd_run_storage(args: argparse.Namespace) -> None:
@@ -130,8 +129,10 @@ def cmd_run_storage(args: argparse.Namespace) -> None:
     _setup_logging()
     config = _load_config(args.config)
 
+    from shared import db
     from storage.manager import StorageManager
 
+    db.init(config.storage.state_db)
     manager = StorageManager(config=config)
     manager.run()
 
@@ -146,11 +147,12 @@ def cmd_status(args: argparse.Namespace) -> None:
     import shutil
 
     config = _load_config(args.config)
-    from shared.state import count_unsynced_segments, open_connection
+    from shared import db
+    from shared.state import count_unsynced_segments
 
-    db_connection = open_connection(config.storage.state_db)
-    unsynced_count = count_unsynced_segments(db_connection)
-    db_connection.close()
+    db.init(config.storage.state_db)
+    unsynced_count = count_unsynced_segments(db.get())
+    db.close()
 
     disk_usage = shutil.disk_usage(config.recording.footage_dir)
     used_pct = disk_usage.used / disk_usage.total * 100
