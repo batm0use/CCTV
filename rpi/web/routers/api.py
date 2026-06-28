@@ -35,7 +35,7 @@ async def get_status(request: Request) -> dict[str, Any]:
     return get_system_status(footage_dir=request.app.state.config.recording.footage_dir)
 
 
-@router.get("/all_segments/count")
+@router.get("/all_segment/count")
 async def get_count(is_synced: bool = False) -> dict[str, int]:
     """
     Return the count of segments matching the is_synced filter.
@@ -53,8 +53,8 @@ async def get_count(is_synced: bool = False) -> dict[str, int]:
     return {"count": get_segment_count(is_synced=is_synced)}
 
 
-@router.get("/all_segments")
-async def list_all_segments(
+@router.get("/all_segment")
+async def list_all_segment(
     is_synced: bool = False,
     limit: int = DEFAULT_SEGMENT_BATCH_LIMIT,
 ) -> list[dict[str, Any]]:
@@ -74,7 +74,10 @@ async def list_all_segments(
     return get_segment_batch(is_synced=is_synced, limit=limit)
 
 
-@router.post("/all_segments/{segment_id}/synced", responses={404: {"description": "Segment not found"}})
+@router.post(
+    "/all_segment/{segment_id}/synced",
+    responses={404: {"description": "Segment not found"}},
+)
 async def mark_segment_synced(segment_id: int) -> dict[str, str]:
     """
     Mark a segment as successfully downloaded by the laptop sync agent.
