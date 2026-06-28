@@ -123,7 +123,7 @@ def confirm_synced(
     mark_segment_synced(connection=db_connection, segment_id=segment_id)
 
 
-def list_segments_paginated(
+def list_all_segments_paginated(
     db_connection: sqlite3.Connection,
     page: int,
     page_size: int,

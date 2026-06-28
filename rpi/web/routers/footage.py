@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from web.services.footage_service import resolve_segment_file
-from web.services.segment_service import list_segments_paginated
+from web.services.segment_service import list_all_segments_paginated
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ async def footage_browser(request: Request, page: int = 1):  # noqa: ANN202
     config = request.app.state.config
     db_connection = request.app.state.db_connection
 
-    all_segments, total_count = list_segments_paginated(
+    all_segments, total_count = list_all_segments_paginated(
         db_connection=db_connection,
         page=page,
         page_size=config.web.footage_page_size,

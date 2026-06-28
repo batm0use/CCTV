@@ -63,7 +63,7 @@ async def get_count(request: Request, is_synced: bool = False) -> dict[str, int]
 
 
 @router.get("/segments")
-async def list_segments(
+async def list_all_segments(
     request: Request,
     is_synced: bool = False,
     limit: int = DEFAULT_SEGMENT_BATCH_LIMIT,
