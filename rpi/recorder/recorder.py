@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from picamera2 import Picamera2
-from picamera2.encoders import H264Encoder, Quality
+from picamera2.encoders import H264Encoder
 from picamera2.outputs import FileOutput
 
 from shared import db, frame_buffer, state
@@ -166,7 +166,7 @@ class Recorder:
         self._current_segment_path = new_segment_path
         self._current_segment_start = segment_start_time
 
-        self._encoder = H264Encoder(bitrate=1_000_000, quality=Quality.MEDIUM)
+        self._encoder = H264Encoder(bitrate=1_000_000)
         output = FileOutput(str(new_segment_path))
         self._camera.start_recording(self._encoder, output)
 
