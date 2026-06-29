@@ -234,6 +234,27 @@ def fetch_oldest_synced_segments(
     ).fetchall()
 
 
+def fetch_incomplete_segments(
+    connection: sqlite3.Connection,
+) -> list[sqlite3.Row]:
+    """
+    Return all segment rows that were never finalised.
+
+    A segment is incomplete when end_timestamp IS NULL, meaning the process
+    was killed before _finalise_current_segment() could run. These rows
+    have a corresponding file on disk that is corrupt or truncated.
+
+    Args:
+        connection: Open database connection.
+
+    Returns:
+        List of sqlite3.Row objects with columns: id, path.
+    """
+    return connection.execute(
+        "SELECT id, path FROM segments WHERE end_timestamp IS NULL"
+    ).fetchall()
+
+
 def delete_segment_record(
     connection: sqlite3.Connection,
     segment_id: int,

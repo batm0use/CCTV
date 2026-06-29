@@ -68,6 +68,36 @@ def cmd_init_db(args: argparse.Namespace) -> None:
     print(f"Database initialised at {config.storage.state_db}")
 
 
+def _purge_incomplete_segments() -> None:
+    """
+    Delete files and DB records for any segment not finalised before last exit.
+
+    Runs once at startup after db.init(). Targets rows where end_timestamp IS
+    NULL — these were being recorded when the process was killed and the
+    corresponding MP4 files are corrupt or truncated.
+    """
+    from shared import db, state
+
+    logger = logging.getLogger(__name__)
+    all_incomplete = state.fetch_incomplete_segments(db.get())
+
+    if not all_incomplete:
+        return
+
+    for row in all_incomplete:
+        segment_file = Path(row["path"])
+        try:
+            segment_file.unlink(missing_ok=True)
+        except OSError as delete_error:
+            logger.warning(
+                "Could not delete incomplete segment %s: %s",
+                segment_file,
+                delete_error,
+            )
+        state.delete_segment_record(db.get(), row["id"])
+        logger.info("Purged incomplete segment %s", segment_file.name)
+
+
 def cmd_run_main(args: argparse.Namespace) -> None:
     """
     Start the recorder thread and the web server (Uvicorn/FastAPI).
@@ -85,6 +115,7 @@ def cmd_run_main(args: argparse.Namespace) -> None:
     from shared import db
 
     db.init(config.storage.state_db)
+    _purge_incomplete_segments()
     recorder = Recorder(config=config)
 
     stop_event = threading.Event()
