@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import logging
+import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,6 +18,39 @@ from shared.paths import ensure_segment_directory, segment_path
 logger = logging.getLogger(__name__)
 
 SEGMENT_FINALISE_TIMEOUT_SECONDS: int = 30
+
+
+def _apply_faststart(segment_path: Path) -> None:
+    """
+    Re-mux an MP4 segment to move the moov atom to the front.
+
+    Required for browser seeking — without faststart the browser cannot
+    seek until the entire file is downloaded. Runs ffmpeg copy (no
+    transcoding) so it completes in under a second on the RPi.
+
+    Args:
+        segment_path: Path to the MP4 file to re-mux in place.
+    """
+    temp_path = segment_path.with_suffix(".tmp.mp4")
+    try:
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-i", str(segment_path),
+                "-c", "copy", "-movflags", "+faststart",
+                str(temp_path),
+            ],
+            check=True,
+            capture_output=True,
+        )
+        temp_path.rename(segment_path)
+    except subprocess.CalledProcessError as ffmpeg_error:
+        logger.warning(
+            "faststart re-mux failed for %s: %s",
+            segment_path.name,
+            ffmpeg_error.stderr.decode(errors="replace"),
+        )
+        if temp_path.exists():
+            temp_path.unlink()
 
 
 class Recorder:
@@ -194,6 +228,7 @@ class Recorder:
             return
 
         self._camera.stop_recording()
+        _apply_faststart(self._current_segment_path)
         segment_end_time = datetime.now(tz=timezone.utc)
         segment_file_size = (
             self._current_segment_path.stat().st_size
