@@ -8,7 +8,7 @@ from pathlib import Path
 
 from picamera2 import Picamera2
 from picamera2.encoders import H264Encoder
-from picamera2.outputs import FileOutput
+from picamera2.outputs import FfmpegOutput
 
 from shared import db, frame_buffer, state
 from shared.config import AppConfig
@@ -167,7 +167,7 @@ class Recorder:
         self._current_segment_start = segment_start_time
 
         self._encoder = H264Encoder(bitrate=1_000_000)
-        output = FileOutput(str(new_segment_path))
+        output = FfmpegOutput(str(new_segment_path))
         self._camera.start_recording(self._encoder, output)
 
         logger.info("Started segment %s", new_segment_path.name)
