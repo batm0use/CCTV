@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import logging
 import shutil
 import sqlite3
+from pathlib import Path
 from typing import Any
 
 from shared import db
 from shared.state import (
     count_unsynced_segments,
+    delete_segment_record,
     fetch_unsynced_segments,
     mark_segment_synced,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def get_system_status(footage_dir: str) -> dict[str, Any]:
@@ -106,6 +111,38 @@ def confirm_synced(segment_id: int) -> None:
         raise ValueError(f"Segment {segment_id} not found")
 
     mark_segment_synced(connection=db.get(), segment_id=segment_id)
+
+
+def purge_all_footage() -> int:
+    """
+    Delete all completed segment files from disk and remove their DB records.
+
+    The currently-recording segment (end_timestamp IS NULL) is not touched.
+    Videos already downloaded to the laptop are unaffected — the laptop stores
+    its own copy and the sync API becomes a no-op once no unsynced segments
+    remain.
+
+    Returns:
+        Number of segment files successfully deleted.
+    """
+    all_completed_segments = db.get().execute(
+        "SELECT id, path FROM segments WHERE end_timestamp IS NOT NULL"
+    ).fetchall()
+
+    deleted_count = 0
+    for segment in all_completed_segments:
+        segment_file = Path(segment["path"])
+        try:
+            if segment_file.exists():
+                segment_file.unlink()
+        except OSError:
+            logger.exception("Failed to delete %s during purge", segment_file)
+            continue
+
+        delete_segment_record(connection=db.get(), segment_id=segment["id"])
+        deleted_count += 1
+
+    return deleted_count
 
 
 def list_all_segments_paginated(
