@@ -88,7 +88,11 @@ def insert_segment(
     )
     connection.commit()
 
-    return cursor.lastrowid
+    row_id = cursor.lastrowid
+    if row_id is None:
+        raise RuntimeError("INSERT did not return a row ID")
+
+    return row_id
 
 
 def finalise_segment(
@@ -162,7 +166,7 @@ def count_unsynced_segments(connection: sqlite3.Connection) -> int:
         "SELECT COUNT(*) FROM segments WHERE is_synced = 0 AND end_timestamp IS NOT NULL"
     ).fetchone()
 
-    return row[0]
+    return int(row[0])
 
 
 def fetch_unsynced_segments(

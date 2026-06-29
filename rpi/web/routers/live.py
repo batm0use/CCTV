@@ -5,7 +5,7 @@ import logging
 from typing import AsyncGenerator
 
 from fastapi import APIRouter, Request
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import RedirectResponse, Response, StreamingResponse
 
 from shared import frame_buffer
 
@@ -29,7 +29,7 @@ async def redirect_to_live() -> RedirectResponse:
 
 
 @router.get("/live")
-async def live_page(request: Request):  # noqa: ANN202
+async def live_page(request: Request) -> Response:
     """
     Render the live view HTML page.
 

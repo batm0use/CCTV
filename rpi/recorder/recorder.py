@@ -200,6 +200,7 @@ class Recorder:
         self._current_segment_path = new_segment_path
         self._current_segment_start = segment_start_time
 
+        assert self._camera is not None
         self._encoder = H264Encoder(bitrate=1_000_000)
         output = FfmpegOutput(str(new_segment_path))
         self._camera.start_recording(self._encoder, output)
@@ -227,6 +228,7 @@ class Recorder:
         if self._current_segment_id is None or self._current_segment_path is None:
             return
 
+        assert self._camera is not None
         self._camera.stop_recording()
         _apply_faststart(self._current_segment_path)
         segment_end_time = datetime.now(tz=timezone.utc)

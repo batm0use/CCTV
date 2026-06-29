@@ -6,6 +6,7 @@ import time
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 import httpx
 
@@ -101,8 +102,8 @@ class SyncAgent:
         """
         try:
             unsynced_count = self._fetch_unsynced_count()
-        except httpx.HTTPError as fetch_error:
-            logger.error("Cannot reach RPi: %s", fetch_error)
+        except httpx.HTTPError:
+            logger.exception("Cannot reach RPi")
             return
 
         if unsynced_count == 0:
@@ -116,8 +117,8 @@ class SyncAgent:
 
         try:
             all_segments = self._fetch_segment_list(batch_size)
-        except httpx.HTTPError as fetch_error:
-            logger.error("Failed to fetch segment list: %s", fetch_error)
+        except httpx.HTTPError:
+            logger.exception("Failed to fetch segment list")
             return
 
         for segment in all_segments:
@@ -137,9 +138,9 @@ class SyncAgent:
         response = httpx.get(url, params={"is_synced": "false"}, timeout=10)
         response.raise_for_status()
 
-        return response.json()["count"]
+        return int(response.json()["count"])
 
-    def _fetch_segment_list(self, limit: int) -> list[dict]:
+    def _fetch_segment_list(self, limit: int) -> list[dict[str, Any]]:
         """
         Fetch a batch of unsynced segment metadata from the RPi.
 
@@ -161,9 +162,9 @@ class SyncAgent:
         )
         response.raise_for_status()
 
-        return response.json()
+        return cast(list[dict[str, Any]], response.json())
 
-    def _download_and_confirm(self, segment: dict) -> None:
+    def _download_and_confirm(self, segment: dict[str, Any]) -> None:
         """
         Download one segment file and confirm receipt to the RPi.
 
@@ -204,8 +205,8 @@ class SyncAgent:
                 with local_file.open("wb") as output_file:
                     for chunk in stream_response.iter_bytes(chunk_size=65536):
                         output_file.write(chunk)
-        except httpx.HTTPError as download_error:
-            logger.error("Failed to download %s: %s", filename, download_error)
+        except httpx.HTTPError:
+            logger.exception("Failed to download %s", filename)
             if local_file.exists():
                 local_file.unlink()
             return
@@ -227,10 +228,8 @@ class SyncAgent:
         try:
             response = httpx.post(url, timeout=10)
             response.raise_for_status()
-        except httpx.HTTPError as confirm_error:
-            logger.error(
-                "Failed to confirm segment %d: %s", segment_id, confirm_error
-            )
+        except httpx.HTTPError:
+            logger.exception("Failed to confirm segment %d", segment_id)
 
     def _compute_batch_size(self, unsynced_count: int) -> int:
         """

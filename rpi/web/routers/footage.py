@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from web.services.footage_service import resolve_segment_file
 from web.services.segment_service import list_all_segments_paginated
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/footage")
 
 
 @router.get("")
-async def footage_browser(request: Request, page: int = 1):  # noqa: ANN202
+async def footage_browser(request: Request, page: int = 1) -> Response:
     """
     Render the paginated footage browser page.
 

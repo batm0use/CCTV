@@ -30,3 +30,7 @@ ignore = ["ANN101", "ANN102"]
 python_version = "3.13"
 explicit_package_bases = true
 strict = true
+
+[[tool.mypy.overrides]]
+module = ["httpx", "httpx.*"]
+ignore_missing_imports = true

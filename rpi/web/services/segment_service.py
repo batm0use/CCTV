@@ -51,7 +51,7 @@ def get_segment_count(is_synced: bool) -> int:
         "SELECT COUNT(*) FROM segments WHERE is_synced = 1 AND end_timestamp IS NOT NULL"
     ).fetchone()
 
-    return row[0]
+    return int(row[0])
 
 
 def get_segment_batch(is_synced: bool, limit: int) -> list[dict[str, Any]]:

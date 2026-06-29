@@ -6,6 +6,10 @@ import signal
 import sys
 import threading
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from shared.config import AppConfig
 
 DEFAULT_CONFIG_PATH: Path = Path("/app/cctv.conf")
 LOG_FORMAT: str = "%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -25,7 +29,7 @@ def _setup_logging(level: str = "INFO") -> None:
     )
 
 
-def _load_config(config_path: Path):  # noqa: ANN202
+def _load_config(config_path: Path) -> AppConfig:
     """
     Load AppConfig from disk, printing a helpful message on failure.
 
@@ -108,7 +112,7 @@ def cmd_run_main(args: argparse.Namespace) -> None:
         log_level="info",
     )
     server = uvicorn.Server(config=server_config)
-    server.install_signal_handlers = lambda: None  # type: ignore[method-assign]
+    server.install_signal_handlers = lambda: None
 
     server.run()
 
