@@ -32,6 +32,9 @@ def resolve_segment_file(
         ValueError: If the resolved path escapes footage_dir (traversal attempt).
         FileNotFoundError: If the segment file does not exist on disk.
     """
+    if not filename.endswith(".mp4"):
+        raise ValueError(f"Filename {filename!r} is not an MP4 file")
+
     candidate = Path(footage_dir) / year / month / day / filename
 
     if not is_path_within_footage_dir(footage_dir, candidate):

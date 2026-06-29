@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import logging
 import subprocess
+import threading
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -74,7 +75,7 @@ class Recorder:
             config: Application configuration loaded from cctv.conf.
         """
         self.config = config
-        self._stop_event = __import__("threading").Event()
+        self._stop_event = threading.Event()
         self._camera: Picamera2 | None = None
         self._current_segment_id: int | None = None
         self._current_segment_path: Path | None = None
@@ -200,7 +201,8 @@ class Recorder:
         self._current_segment_path = new_segment_path
         self._current_segment_start = segment_start_time
 
-        assert self._camera is not None
+        if self._camera is None:
+            raise RuntimeError("Camera not initialised")
         self._encoder = H264Encoder(bitrate=1_000_000)
         output = FfmpegOutput(str(new_segment_path))
         self._camera.start_recording(self._encoder, output)
@@ -228,7 +230,8 @@ class Recorder:
         if self._current_segment_id is None or self._current_segment_path is None:
             return
 
-        assert self._camera is not None
+        if self._camera is None:
+            raise RuntimeError("Camera not initialised")
         self._camera.stop_recording()
         _apply_faststart(self._current_segment_path)
         segment_end_time = datetime.now(tz=UTC)

@@ -118,12 +118,9 @@ def cmd_run_main(args: argparse.Namespace) -> None:
     _purge_incomplete_segments()
     recorder = Recorder(config=config)
 
-    stop_event = threading.Event()
-
     def _handle_shutdown(signum: int, _frame: object) -> None:
         logging.getLogger(__name__).info("Shutdown signal received")
         recorder.stop()
-        stop_event.set()
 
     signal.signal(signal.SIGTERM, _handle_shutdown)
     signal.signal(signal.SIGINT, _handle_shutdown)
@@ -150,7 +147,7 @@ def cmd_run_main(args: argparse.Namespace) -> None:
 
     server.run()
 
-    stop_event.wait()
+    recorder.stop()
     recorder_thread.join(timeout=60)
     db.close()
 

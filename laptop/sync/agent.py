@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import logging
+import re
 import shutil
 import time
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
+
+_SAFE_YEAR = re.compile(r"^\d{4}$")
+_SAFE_MONTH = re.compile(r"^\d{2}$")
+_SAFE_DAY = re.compile(r"^\d{2}$")
+_SAFE_FILENAME = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.mp4$")
 
 import httpx
 
@@ -184,6 +190,14 @@ class SyncAgent:
             return
 
         year, month, day, filename = parts[-4], parts[-3], parts[-2], parts[-1]
+
+        if not (_SAFE_YEAR.match(year) and _SAFE_MONTH.match(month)
+                and _SAFE_DAY.match(day) and _SAFE_FILENAME.match(filename)):
+            logger.warning(
+                "Rejecting segment with unsafe path components: %s", remote_path
+            )
+            return
+
         local_dir = Path(self.config.local_footage_dir) / year / month / day
         local_file = local_dir / filename
 

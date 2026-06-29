@@ -96,9 +96,14 @@ def load_config(config_path: Path) -> AppConfig:
     )
 
     storage_raw = raw.get("storage", {})
+    delete_threshold_pct = storage_raw.get("delete_threshold_pct", 90)
+    if not 1 <= delete_threshold_pct <= 99:
+        raise ValueError(
+            f"storage.delete_threshold_pct must be 1–99 (got {delete_threshold_pct})"
+        )
     storage = StorageConfig(
         state_db=storage_raw.get("state_db", "/var/lib/cctv/state.db"),
-        delete_threshold_pct=storage_raw.get("delete_threshold_pct", 90),
+        delete_threshold_pct=delete_threshold_pct,
         check_interval_seconds=storage_raw.get("check_interval_seconds", 60),
         min_segment_age_hours=storage_raw.get("min_segment_age_hours", 2),
     )
