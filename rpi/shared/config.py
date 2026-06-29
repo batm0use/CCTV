@@ -17,6 +17,8 @@ class CameraConfig:
 class RecordingConfig:
     segment_duration_minutes: int = 10
     footage_dir: str = "/var/lib/cctv/footage"
+    bitrate_bps: int = 200_000
+    encoder: str = "h264"
 
 
 @dataclass
@@ -32,6 +34,7 @@ class StorageConfig:
     delete_threshold_pct: int = 90
     check_interval_seconds: int = 60
     min_segment_age_hours: int = 2
+    require_synced_for_deletion: bool = True
 
 
 @dataclass
@@ -42,12 +45,23 @@ class WebConfig:
 
 
 @dataclass
+class MotionConfig:
+    enabled: bool = False
+    pixel_diff_threshold: int = 25
+    motion_ratio_threshold: float = 0.02
+    cooldown_seconds: int = 60
+    ntfy_topic: str = ""
+    ntfy_server: str = "https://ntfy.sh"
+
+
+@dataclass
 class AppConfig:
     camera: CameraConfig = field(default_factory=CameraConfig)
     recording: RecordingConfig = field(default_factory=RecordingConfig)
     stream: StreamConfig = field(default_factory=StreamConfig)
     storage: StorageConfig = field(default_factory=StorageConfig)
     web: WebConfig = field(default_factory=WebConfig)
+    motion: MotionConfig = field(default_factory=MotionConfig)
 
 
 def load_config(config_path: Path) -> AppConfig:
@@ -78,9 +92,21 @@ def load_config(config_path: Path) -> AppConfig:
     )
 
     recording_raw = raw.get("recording", {})
+    encoder_value = recording_raw.get("encoder", "h264")
+    if encoder_value not in {"h264", "h265"}:
+        raise ValueError(
+            f"recording.encoder must be 'h264' or 'h265' (got {encoder_value!r})"
+        )
+    bitrate_bps = recording_raw.get("bitrate_bps", 200_000)
+    if bitrate_bps < 50_000:
+        raise ValueError(
+            f"recording.bitrate_bps must be >= 50000 (got {bitrate_bps})"
+        )
     recording = RecordingConfig(
         segment_duration_minutes=recording_raw.get("segment_duration_minutes", 10),
         footage_dir=recording_raw.get("footage_dir", "/var/lib/cctv/footage"),
+        bitrate_bps=bitrate_bps,
+        encoder=encoder_value,
     )
 
     stream_raw = raw.get("stream", {})
@@ -106,6 +132,9 @@ def load_config(config_path: Path) -> AppConfig:
         delete_threshold_pct=delete_threshold_pct,
         check_interval_seconds=storage_raw.get("check_interval_seconds", 60),
         min_segment_age_hours=storage_raw.get("min_segment_age_hours", 2),
+        require_synced_for_deletion=storage_raw.get(
+            "require_synced_for_deletion", True
+        ),
     )
 
     web_raw = raw.get("web", {})
@@ -115,10 +144,21 @@ def load_config(config_path: Path) -> AppConfig:
         footage_page_size=web_raw.get("footage_page_size", 50),
     )
 
+    motion_raw = raw.get("motion", {})
+    motion = MotionConfig(
+        enabled=motion_raw.get("enabled", False),
+        pixel_diff_threshold=motion_raw.get("pixel_diff_threshold", 25),
+        motion_ratio_threshold=motion_raw.get("motion_ratio_threshold", 0.02),
+        cooldown_seconds=motion_raw.get("cooldown_seconds", 60),
+        ntfy_topic=motion_raw.get("ntfy_topic", ""),
+        ntfy_server=motion_raw.get("ntfy_server", "https://ntfy.sh"),
+    )
+
     return AppConfig(
         camera=camera,
         recording=recording,
         stream=stream,
         storage=storage,
         web=web,
+        motion=motion,
     )
