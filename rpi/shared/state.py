@@ -234,6 +234,45 @@ def fetch_oldest_synced_segments(
     ).fetchall()
 
 
+def fetch_oldest_segments(
+    connection: sqlite3.Connection,
+    min_age_hours: int,
+    limit: int,
+) -> list[sqlite3.Row]:
+    """
+    Fetch the oldest completed segments eligible for deletion, regardless of
+    sync status.
+
+    Used in standalone mode (require_synced_for_deletion = False) where the
+    laptop sync agent is not running and is_synced will always remain 0.
+    The end_timestamp IS NOT NULL guard prevents deleting the segment the
+    recorder is currently writing.
+
+    Args:
+        connection: Open database connection.
+        min_age_hours: Minimum age in hours a segment must have before it
+            is eligible for local deletion.
+        limit: Maximum number of rows to return.
+
+    Returns:
+        List of sqlite3.Row objects ordered by start_timestamp ascending.
+        Each row has columns: id, path, size_bytes.
+    """
+    cutoff = (datetime.now(tz=UTC) - timedelta(hours=min_age_hours)).isoformat()
+
+    return connection.execute(
+        """
+        SELECT id, path, size_bytes
+          FROM segments
+         WHERE end_timestamp IS NOT NULL
+           AND start_timestamp < :cutoff
+         ORDER BY start_timestamp ASC
+         LIMIT :limit
+        """,
+        {"cutoff": cutoff, "limit": limit},
+    ).fetchall()
+
+
 def fetch_incomplete_segments(
     connection: sqlite3.Connection,
 ) -> list[sqlite3.Row]:

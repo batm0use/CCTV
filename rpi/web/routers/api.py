@@ -10,6 +10,7 @@ from web.services.segment_service import (
     get_segment_batch,
     get_segment_count,
     get_system_status,
+    purge_all_footage,
 )
 
 logger = logging.getLogger(__name__)
@@ -102,3 +103,24 @@ async def mark_segment_synced(segment_id: int) -> dict[str, str]:
     logger.info("Segment %d marked as synced", segment_id)
 
     return {"status": "ok"}
+
+
+@router.delete("/footage")
+async def delete_all_footage() -> dict[str, int]:
+    """
+    Delete all completed segment recordings from the RPi.
+
+    Removes every segment file whose recording has finished
+    (end_timestamp IS NOT NULL) and purges their database records.
+    The segment currently being recorded is not touched.
+
+    Videos already downloaded to the laptop are not affected — the laptop
+    stores its own copy and the sync API returns an empty list once no
+    unsynced segments remain.
+
+    Returns:
+        Dict with key "deleted" containing the number of segments removed.
+    """
+    deleted = purge_all_footage()
+    logger.warning("Purged %d segment(s) from RPi via web UI", deleted)
+    return {"deleted": deleted}

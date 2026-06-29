@@ -13,10 +13,19 @@
   .pagination { margin-top: 1.5rem; display: flex; gap: 1rem; }
   .pagination a { color: #7cb8f0; text-decoration: none; }
   video { width: 100%; max-width: 900px; display: block; margin-top: 1rem; background: #000; }
+  .purge-btn { background: #3a1a1a; color: #e08888; border: 1px solid #5a2a2a;
+               padding: 0.35rem 0.8rem; border-radius: 4px; font-size: 0.82rem;
+               cursor: pointer; }
+  .purge-btn:hover { background: #4a2020; color: #f0a0a0; }
 </style>
 {% endblock %}
 {% block content %}
-<p class="segment-meta">{{ total_count }} recording{{ 's' if total_count != 1 }} — page {{ page }} of {{ total_pages }}</p>
+<div style="display:flex; align-items:baseline; gap:1.5rem; margin-bottom:0.5rem;">
+  <p class="segment-meta">{{ total_count }} recording{{ 's' if total_count != 1 }} — page {{ page }} of {{ total_pages }}</p>
+  {% if total_count > 0 %}
+  <button class="purge-btn" onclick="purgeAllFootage({{ total_count }})">Delete all footage from RPi</button>
+  {% endif %}
+</div>
 
 <div class="footage-list">
   {% for segment in all_segments %}
@@ -47,4 +56,22 @@
   <a href="/footage?page={{ page + 1 }}">Older →</a>
   {% endif %}
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function purgeAllFootage(count) {
+  if (!confirm(
+    'Delete all ' + count + ' recording' + (count === 1 ? '' : 's') + ' from the RPi?\n\n' +
+    'Videos already downloaded to your laptop are not affected — the laptop keeps its own copy.'
+  )) return;
+  const r = await fetch('/api/footage', { method: 'DELETE' });
+  if (r.ok) {
+    const data = await r.json();
+    alert('Deleted ' + data.deleted + ' recording' + (data.deleted === 1 ? '' : 's') + ' from the RPi.');
+    location.reload();
+  } else {
+    alert('Delete failed. Check the container logs.');
+  }
+}
+</script>
 {% endblock %}

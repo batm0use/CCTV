@@ -8,10 +8,13 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
+import numpy as np
+import numpy.typing as npt
 from picamera2 import Picamera2
 from picamera2.encoders import H264Encoder
 from picamera2.outputs import FfmpegOutput
 
+from recorder.motion import MotionState, detect_motion, send_ntfy_notification
 from shared import db, frame_buffer, state
 from shared.config import AppConfig
 from shared.paths import ensure_segment_directory, segment_path
@@ -81,6 +84,7 @@ class Recorder:
         self._current_segment_path: Path | None = None
         self._current_segment_start: datetime | None = None
         self._encoder: H264Encoder | None = None
+        self._motion_state: MotionState = MotionState()
 
     def start(self) -> None:
         """
@@ -203,7 +207,12 @@ class Recorder:
 
         if self._camera is None:
             raise RuntimeError("Camera not initialised")
-        self._encoder = H264Encoder(bitrate=1_000_000)
+        bitrate = self.config.recording.bitrate_bps
+        if self.config.recording.encoder == "h265":
+            from picamera2.encoders import H265Encoder  # noqa: PLC0415
+            self._encoder = H265Encoder(bitrate=bitrate)
+        else:
+            self._encoder = H264Encoder(bitrate=bitrate)
         output = FfmpegOutput(str(new_segment_path))
         self._camera.start_recording(self._encoder, output)
 
@@ -262,8 +271,11 @@ class Recorder:
         """
         Capture one JPEG frame from the lores stream into frame_buffer.
 
-        Silently skips if the camera is not ready or capture fails, so
-        that preview errors never interrupt the recording loop.
+        When motion detection is enabled, also captures the raw lores array and
+        runs frame differencing on the Y-plane. Sends an ntfy notification if
+        motion is detected and the cooldown has elapsed. Silently skips if the
+        camera is not ready or capture fails, so preview errors never interrupt
+        the recording loop.
         """
         if self._camera is None:
             return
@@ -272,5 +284,12 @@ class Recorder:
             jpeg_buffer = io.BytesIO()
             self._camera.capture_file(jpeg_buffer, name="lores", format="jpeg")
             frame_buffer.write(jpeg_buffer.getvalue())
+
+            if self.config.motion.enabled:
+                raw_array: npt.NDArray[np.uint8] = self._camera.capture_array("lores")
+                stream_h = self.config.stream.stream_resolution[1]
+                y_plane = raw_array[:stream_h, :]
+                if detect_motion(y_plane, self._motion_state, self.config.motion):
+                    send_ntfy_notification(self.config.motion, self._motion_state)
         except Exception as capture_error:
             logger.warning("Preview frame capture failed: %s", capture_error)
