@@ -48,7 +48,8 @@ def get_segment_count(is_synced: bool) -> int:
         return count_unsynced_segments(db.get())
 
     row = db.get().execute(
-        "SELECT COUNT(*) FROM segments WHERE is_synced = 1 AND end_timestamp IS NOT NULL"
+        "SELECT COUNT(*) FROM segments"
+        " WHERE is_synced = 1 AND end_timestamp IS NOT NULL"
     ).fetchone()
 
     return int(row[0])

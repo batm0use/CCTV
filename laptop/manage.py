@@ -29,7 +29,8 @@ def cmd_run_sync(args: argparse.Namespace) -> None:
     if not args.config.exists():
         print(
             f"ERROR: config file not found at {args.config}\n"
-            "Copy sync.conf.example to sync.conf and fill in rpi_base_url and local_footage_dir.",
+            "Copy sync.conf.example to sync.conf"
+            " and fill in rpi_base_url and local_footage_dir.",
             file=sys.stderr,
         )
         sys.exit(1)

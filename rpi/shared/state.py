@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 
@@ -163,7 +163,8 @@ def count_unsynced_segments(connection: sqlite3.Connection) -> int:
         Count of segments where is_synced = 0 and end_timestamp IS NOT NULL.
     """
     row = connection.execute(
-        "SELECT COUNT(*) FROM segments WHERE is_synced = 0 AND end_timestamp IS NOT NULL"
+        "SELECT COUNT(*) FROM segments"
+        " WHERE is_synced = 0 AND end_timestamp IS NOT NULL"
     ).fetchone()
 
     return int(row[0])
@@ -218,7 +219,7 @@ def fetch_oldest_synced_segments(
         List of sqlite3.Row objects ordered by start_timestamp ascending.
         Each row has columns: id, path, size_bytes.
     """
-    cutoff = (datetime.now(tz=timezone.utc) - timedelta(hours=min_age_hours)).isoformat()
+    cutoff = (datetime.now(tz=UTC) - timedelta(hours=min_age_hours)).isoformat()
 
     return connection.execute(
         """

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import threading
 
-
 _lock: threading.Lock = threading.Lock()
 _latest_frame: bytes = b""
 

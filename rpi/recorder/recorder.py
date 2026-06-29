@@ -4,7 +4,7 @@ import io
 import logging
 import subprocess
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from picamera2 import Picamera2
@@ -166,7 +166,7 @@ class Recorder:
             return False
 
         elapsed_minutes = (
-            datetime.now(tz=timezone.utc) - self._current_segment_start
+            datetime.now(tz=UTC) - self._current_segment_start
         ).total_seconds() / 60.0
 
         return elapsed_minutes >= self.config.recording.segment_duration_minutes
@@ -182,7 +182,7 @@ class Recorder:
             OSError: If the output directory or file cannot be created.
             sqlite3.OperationalError: If the DB insert fails.
         """
-        segment_start_time = datetime.now(tz=timezone.utc)
+        segment_start_time = datetime.now(tz=UTC)
         new_segment_path = segment_path(
             self.config.recording.footage_dir,
             segment_start_time,
@@ -231,7 +231,7 @@ class Recorder:
         assert self._camera is not None
         self._camera.stop_recording()
         _apply_faststart(self._current_segment_path)
-        segment_end_time = datetime.now(tz=timezone.utc)
+        segment_end_time = datetime.now(tz=UTC)
         segment_file_size = (
             self._current_segment_path.stat().st_size
             if self._current_segment_path.exists()

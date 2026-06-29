@@ -33,7 +33,8 @@ async def footage_browser(request: Request, page: int = 1) -> Response:
         page=page,
         page_size=config.web.footage_page_size,
     )
-    total_pages = max(1, (total_count + config.web.footage_page_size - 1) // config.web.footage_page_size)
+    page_size = config.web.footage_page_size
+    total_pages = max(1, (total_count + page_size - 1) // page_size)
 
     return request.app.state.templates.TemplateResponse(
         request,
@@ -90,9 +91,15 @@ async def download_segment(
             day=day,
             filename=filename,
         )
-    except ValueError:
-        raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail="Invalid path")
-    except FileNotFoundError:
-        raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Segment not found")
+    except ValueError as path_error:
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST, detail="Invalid path"
+        ) from path_error
+    except FileNotFoundError as not_found_error:
+        raise HTTPException(
+            status_code=HTTP_404_NOT_FOUND, detail="Segment not found"
+        ) from not_found_error
 
-    return FileResponse(path=str(segment_file), media_type="video/mp4", filename=filename)
+    return FileResponse(
+        path=str(segment_file), media_type="video/mp4", filename=filename
+    )

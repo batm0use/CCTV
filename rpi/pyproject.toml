@@ -31,10 +31,7 @@ select = [
     "ANN", # flake8-annotations (enforce type hints)
     "N",   # pep8-naming
 ]
-ignore = [
-    "ANN101", # missing type annotation for self
-    "ANN102", # missing type annotation for cls
-]
+ignore = []
 
 [tool.ruff.lint.pep8-naming]
 # Enforce is_ / has_ prefix on boolean variables is handled by review, not Ruff

@@ -81,8 +81,8 @@ def cmd_run_main(args: argparse.Namespace) -> None:
     _setup_logging()
     config = _load_config(args.config)
 
-    from shared import db
     from recorder.recorder import Recorder
+    from shared import db
 
     db.init(config.storage.state_db)
     recorder = Recorder(config=config)
@@ -97,10 +97,13 @@ def cmd_run_main(args: argparse.Namespace) -> None:
     signal.signal(signal.SIGTERM, _handle_shutdown)
     signal.signal(signal.SIGINT, _handle_shutdown)
 
-    recorder_thread = threading.Thread(target=recorder.start, daemon=False, name="recorder")
+    recorder_thread = threading.Thread(
+        target=recorder.start, daemon=False, name="recorder"
+    )
     recorder_thread.start()
 
     import uvicorn
+
     from web.app import build_app
 
     application = build_app(config=config)
@@ -175,7 +178,9 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     Returns:
         Configured ArgumentParser instance.
     """
-    parser = argparse.ArgumentParser(prog="manage.py", description="CCTV management CLI")
+    parser = argparse.ArgumentParser(
+        prog="manage.py", description="CCTV management CLI"
+    )
     parser.add_argument(
         "--config",
         type=Path,

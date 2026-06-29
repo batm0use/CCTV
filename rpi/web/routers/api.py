@@ -93,11 +93,11 @@ async def mark_segment_synced(segment_id: int) -> dict[str, str]:
     """
     try:
         confirm_synced(segment_id=segment_id)
-    except ValueError:
+    except ValueError as not_found_error:
         raise HTTPException(
             status_code=HTTP_404_NOT_FOUND,
             detail=f"Segment {segment_id} not found",
-        )
+        ) from not_found_error
 
     logger.info("Segment %d marked as synced", segment_id)
 
