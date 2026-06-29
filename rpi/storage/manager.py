@@ -7,7 +7,11 @@ from pathlib import Path
 
 from shared import db
 from shared.config import AppConfig
-from shared.state import delete_segment_record, fetch_oldest_synced_segments
+from shared.state import (
+    delete_segment_record,
+    fetch_oldest_segments,
+    fetch_oldest_synced_segments,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +20,15 @@ DELETION_BATCH_SIZE: int = 10
 
 class StorageManager:
     """
-    Monitors disk usage and deletes locally confirmed-synced segments.
+    Monitors disk usage and deletes the oldest eligible segments when the
+    configured threshold is exceeded.
 
     Runs as a separate Docker service (cctv-storage). Does not push or
     sync footage — that is the responsibility of the laptop sync agent.
-    Only deletes segments that have been marked is_synced = 1 by the
-    laptop, and only when disk usage exceeds delete_threshold_pct.
+    In synced mode (require_synced_for_deletion = True) only deletes
+    segments marked is_synced = 1. In standalone mode deletes the oldest
+    completed segments regardless of sync status, enabling RPi-only
+    deployments without a laptop agent.
 
     Attributes:
         config: Application configuration loaded from cctv.conf.
@@ -78,32 +85,57 @@ class StorageManager:
         if used_pct < self.config.storage.delete_threshold_pct:
             return
 
-        logger.warning(
-            "Disk at %.1f%% (threshold: %d%%) — deleting oldest synced segments",
-            used_pct,
-            self.config.storage.delete_threshold_pct,
-        )
-        self._delete_oldest_synced()
+        if self.config.storage.require_synced_for_deletion:
+            logger.warning(
+                "Disk at %.1f%% (threshold: %d%%) — deleting oldest synced segments",
+                used_pct,
+                self.config.storage.delete_threshold_pct,
+            )
+        else:
+            logger.warning(
+                "Disk at %.1f%% (threshold: %d%%) — deleting oldest segments"
+                " (standalone mode)",
+                used_pct,
+                self.config.storage.delete_threshold_pct,
+            )
+        self._delete_oldest_segments()
 
-    def _delete_oldest_synced(self) -> None:
+    def _delete_oldest_segments(self) -> None:
         """
-        Delete the oldest synced segment files and their DB records.
+        Delete the oldest eligible segment files and their DB records.
 
-        Fetches up to DELETION_BATCH_SIZE synced segments older than
-        min_segment_age_hours and deletes each file plus its DB row.
-        Logs a warning if no eligible segments are found.
+        In synced mode (require_synced_for_deletion = True) fetches only
+        segments marked is_synced = 1. In standalone mode fetches any
+        completed segment. Deletes up to DELETION_BATCH_SIZE files older
+        than min_segment_age_hours and removes their DB rows. Logs a warning
+        if no eligible segments are found.
         """
-        all_eligible_segments = fetch_oldest_synced_segments(
-            connection=db.get(),
-            min_age_hours=self.config.storage.min_segment_age_hours,
-            limit=DELETION_BATCH_SIZE,
-        )
+        if self.config.storage.require_synced_for_deletion:
+            all_eligible_segments = fetch_oldest_synced_segments(
+                connection=db.get(),
+                min_age_hours=self.config.storage.min_segment_age_hours,
+                limit=DELETION_BATCH_SIZE,
+            )
+        else:
+            all_eligible_segments = fetch_oldest_segments(
+                connection=db.get(),
+                min_age_hours=self.config.storage.min_segment_age_hours,
+                limit=DELETION_BATCH_SIZE,
+            )
 
         if not all_eligible_segments:
-            logger.warning(
-                "Disk over threshold but no synced segments are old enough to delete. "
-                "Ensure the laptop sync agent is running and confirming downloads."
-            )
+            if self.config.storage.require_synced_for_deletion:
+                logger.warning(
+                    "Disk over threshold but no synced segments are old enough"
+                    " to delete. Ensure the laptop sync agent is running and"
+                    " confirming downloads."
+                )
+            else:
+                logger.warning(
+                    "Disk over threshold but no segments are old enough to delete. "
+                    "Minimum age is %d hours.",
+                    self.config.storage.min_segment_age_hours,
+                )
             return
 
         for segment in all_eligible_segments:

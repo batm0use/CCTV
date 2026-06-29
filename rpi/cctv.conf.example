@@ -10,6 +10,16 @@ awb_mode = "auto"
 [recording]
 segment_duration_minutes = 10
 footage_dir = "/var/lib/cctv/footage"
+# bitrate_bps: encoder target bitrate in bits per second.
+#   200000  = 200 Kbps → ~2.2 GB/day  (256 GB card ≈ 118 days continuous)
+#   150000  = 150 Kbps → ~1.6 GB/day  (256 GB card ≈ 157 days continuous)
+#   100000  = 100 Kbps → ~1.1 GB/day  (256 GB card ≈ 237 days continuous, use h265)
+#   1000000 = 1 Mbps   → ~10.8 GB/day (256 GB card ≈ 23 days — previous default)
+bitrate_bps = 200000
+# encoder: "h264" works with all browsers (default).
+#   "h265" gives better quality at the same bitrate — test on real hardware
+#   before a long deployment as browser support varies (Chrome/Safari ✓, Firefox partial).
+encoder = "h264"
 
 [stream]
 stream_fps = 5              # MJPEG live view framerate (independent of recording fps)
@@ -30,8 +40,34 @@ check_interval_seconds = 60
 # min_segment_age_hours: never delete segments newer than this (prevents race
 # conditions between the recorder, sync agent, and storage manager)
 min_segment_age_hours = 2
+# require_synced_for_deletion: when true (default), only deletes segments the
+#   laptop sync agent has confirmed downloaded (is_synced = 1).
+#   Set to false for STANDALONE operation (no laptop agent running): the storage
+#   manager will delete oldest segments by age regardless of sync status.
+require_synced_for_deletion = false
 
 [web]
 host = "0.0.0.0"
 port = 8080
 footage_page_size = 50
+
+[motion]
+# Motion detection uses the existing 640×360 lores preview stream — no extra
+# camera resources are consumed.
+enabled = false
+# pixel_diff_threshold: per-pixel luminance difference (0–255) that counts as
+#   "changed". 25 works well indoors. Raise to ~40 outdoors to reduce false
+#   positives from wind-moved foliage or changing natural light.
+pixel_diff_threshold = 25
+# motion_ratio_threshold: fraction of pixels that must exceed pixel_diff_threshold
+#   before motion is declared. 0.02 = 2% of pixels (≈7680 pixels at 640×360).
+motion_ratio_threshold = 0.02
+# cooldown_seconds: minimum seconds between ntfy notifications.
+cooldown_seconds = 60
+# ntfy_topic: your ntfy.sh topic name. Leave empty to disable notifications.
+#   Example: if your URL is https://ntfy.sh/my-cctv-home set ntfy_topic = "my-cctv-home".
+#   Install the ntfy app on iOS/Android and subscribe to this topic.
+#   No account required for the free ntfy.sh server.
+ntfy_topic = ""
+# ntfy_server: override for a self-hosted ntfy instance.
+ntfy_server = "https://ntfy.sh"
