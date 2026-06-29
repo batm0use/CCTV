@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 import numpy.typing as npt
 from picamera2 import Picamera2
-from picamera2.encoders import H264Encoder, H265Encoder
+from picamera2.encoders import H264Encoder
 from picamera2.outputs import FfmpegOutput
 
 from recorder.motion import MotionState, detect_motion, send_ntfy_notification
@@ -83,7 +83,7 @@ class Recorder:
         self._current_segment_id: int | None = None
         self._current_segment_path: Path | None = None
         self._current_segment_start: datetime | None = None
-        self._encoder: H264Encoder | H265Encoder | None = None
+        self._encoder: H264Encoder | None = None
         self._motion_state: MotionState = MotionState()
 
     def start(self) -> None:
@@ -209,6 +209,7 @@ class Recorder:
             raise RuntimeError("Camera not initialised")
         bitrate = self.config.recording.bitrate_bps
         if self.config.recording.encoder == "h265":
+            from picamera2.encoders import H265Encoder  # noqa: PLC0415
             self._encoder = H265Encoder(bitrate=bitrate)
         else:
             self._encoder = H264Encoder(bitrate=bitrate)
