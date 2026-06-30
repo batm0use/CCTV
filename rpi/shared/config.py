@@ -55,6 +55,13 @@ class MotionConfig:
 
 
 @dataclass
+class AuthConfig:
+    username: str = ""
+    password: str = ""
+    session_lifetime_hours: int = 24
+
+
+@dataclass
 class AppConfig:
     camera: CameraConfig = field(default_factory=CameraConfig)
     recording: RecordingConfig = field(default_factory=RecordingConfig)
@@ -62,6 +69,7 @@ class AppConfig:
     storage: StorageConfig = field(default_factory=StorageConfig)
     web: WebConfig = field(default_factory=WebConfig)
     motion: MotionConfig = field(default_factory=MotionConfig)
+    auth: AuthConfig = field(default_factory=AuthConfig)
 
 
 def load_config(config_path: Path) -> AppConfig:
@@ -154,6 +162,30 @@ def load_config(config_path: Path) -> AppConfig:
         ntfy_server=motion_raw.get("ntfy_server", "https://ntfy.sh"),
     )
 
+    auth_raw = raw.get("auth", {})
+    auth_username = auth_raw.get("username", "")
+    if not auth_username:
+        raise ValueError(
+            "auth.username must be set in cctv.conf — "
+            "add an [auth] section with username and password."
+        )
+    auth_password = auth_raw.get("password", "")
+    if not auth_password:
+        raise ValueError(
+            "auth.password must be set in cctv.conf — "
+            "add an [auth] section with username and password."
+        )
+    session_lifetime_hours = auth_raw.get("session_lifetime_hours", 24)
+    if session_lifetime_hours < 1:
+        raise ValueError(
+            f"auth.session_lifetime_hours must be >= 1 (got {session_lifetime_hours})"
+        )
+    auth = AuthConfig(
+        username=auth_username,
+        password=auth_password,
+        session_lifetime_hours=session_lifetime_hours,
+    )
+
     return AppConfig(
         camera=camera,
         recording=recording,
@@ -161,4 +193,5 @@ def load_config(config_path: Path) -> AppConfig:
         storage=storage,
         web=web,
         motion=motion,
+        auth=auth,
     )

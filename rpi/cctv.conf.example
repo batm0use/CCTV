@@ -51,6 +51,15 @@ host = "0.0.0.0"
 port = 8080
 footage_page_size = 50
 
+[auth]
+# Credentials for the web interface. Both fields are required — the server
+# will refuse to start if password is empty.
+username = "admin"
+password = "change-me"
+# session_lifetime_hours: how long a browser login session stays valid.
+# Default is 24 hours. Minimum is 1.
+session_lifetime_hours = 24
+
 [motion]
 # Motion detection uses the existing 640×360 lores preview stream — no extra
 # camera resources are consumed.

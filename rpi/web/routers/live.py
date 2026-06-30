@@ -4,17 +4,18 @@ import asyncio
 import logging
 from collections.abc import AsyncGenerator
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse, Response, StreamingResponse
 
 from shared import frame_buffer
+from web.auth import require_auth
 
 logger = logging.getLogger(__name__)
 
 MJPEG_BOUNDARY: bytes = b"--frame"
 MJPEG_CONTENT_TYPE: str = "multipart/x-mixed-replace; boundary=frame"
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_auth)])
 
 
 @router.get("/")
@@ -39,7 +40,9 @@ async def live_page(request: Request) -> Response:
     Returns:
         HTML TemplateResponse for live.html.
     """
-    return request.app.state.templates.TemplateResponse(request, "live.html")
+    return request.app.state.templates.TemplateResponse(
+        request, "live.html", {"active": "live"}
+    )
 
 
 @router.get("/stream.mjpeg")

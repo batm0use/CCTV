@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 import numpy as np
 import numpy.typing as npt
 
+from shared import runtime_flags
 from shared.config import MotionConfig
 
 logger = logging.getLogger(__name__)
@@ -82,6 +83,8 @@ def send_ntfy_notification(config: MotionConfig, state: MotionState) -> None:
             successful send.
     """
     if not config.ntfy_topic:
+        return
+    if not runtime_flags.is_notifications_enabled():
         return
 
     now = time.monotonic()
