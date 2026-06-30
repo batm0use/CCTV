@@ -9,12 +9,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
+import httpx
+
 _SAFE_YEAR = re.compile(r"^\d{4}$")
 _SAFE_MONTH = re.compile(r"^\d{2}$")
 _SAFE_DAY = re.compile(r"^\d{2}$")
 _SAFE_FILENAME = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.mp4$")
-
-import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +32,8 @@ class SyncConfig:
     catchup_threshold: int
     trickle_threshold: int
     batch_hard_limit: int
+    rpi_username: str = ""
+    rpi_password: str = ""
 
 
 def load_sync_config(config_path: Path) -> SyncConfig:
@@ -48,6 +50,7 @@ def load_sync_config(config_path: Path) -> SyncConfig:
         raw = tomllib.load(config_file)
 
     sync_raw = raw.get("sync", {})
+    auth_raw = raw.get("auth", {})
 
     return SyncConfig(
         rpi_base_url=sync_raw["rpi_base_url"].rstrip("/"),
@@ -56,6 +59,8 @@ def load_sync_config(config_path: Path) -> SyncConfig:
         catchup_threshold=sync_raw.get("catchup_threshold", CATCHUP_THRESHOLD),
         trickle_threshold=sync_raw.get("trickle_threshold", TRICKLE_THRESHOLD),
         batch_hard_limit=sync_raw.get("batch_hard_limit", 20),
+        rpi_username=auth_raw.get("username", ""),
+        rpi_password=auth_raw.get("password", ""),
     )
 
 
@@ -79,6 +84,11 @@ class SyncAgent:
         """
         self.config = config
         self._avg_segment_mb: float = AVG_SEGMENT_MB
+        self._auth: tuple[str, str] | None = (
+            (config.rpi_username, config.rpi_password)
+            if config.rpi_username
+            else None
+        )
 
     def run(self) -> None:
         """
@@ -141,7 +151,9 @@ class SyncAgent:
             httpx.HTTPError: If the request fails or returns a non-2xx status.
         """
         url = f"{self.config.rpi_base_url}/api/all_segment/count"
-        response = httpx.get(url, params={"is_synced": "false"}, timeout=10)
+        response = httpx.get(
+            url, params={"is_synced": "false"}, timeout=10, auth=self._auth
+        )
         response.raise_for_status()
 
         return int(response.json()["count"])
@@ -165,6 +177,7 @@ class SyncAgent:
             url,
             params={"is_synced": "false", "limit": limit},
             timeout=10,
+            auth=self._auth,
         )
         response.raise_for_status()
 
@@ -214,7 +227,9 @@ class SyncAgent:
 
         try:
             logger.info("Downloading %s", filename)
-            with httpx.stream("GET", download_url, timeout=120) as stream_response:
+            with httpx.stream(
+                "GET", download_url, timeout=120, auth=self._auth
+            ) as stream_response:
                 stream_response.raise_for_status()
                 with local_file.open("wb") as output_file:
                     for chunk in stream_response.iter_bytes(chunk_size=65536):
@@ -240,7 +255,7 @@ class SyncAgent:
         """
         url = f"{self.config.rpi_base_url}/api/all_segment/{segment_id}/synced"
         try:
-            response = httpx.post(url, timeout=10)
+            response = httpx.post(url, timeout=10, auth=self._auth)
             response.raise_for_status()
         except httpx.HTTPError:
             logger.exception("Failed to confirm segment %d", segment_id)

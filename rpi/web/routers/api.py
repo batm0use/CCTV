@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from web.auth import require_auth
+from web.services.motion_service import (
+    get_motion_state,
+    set_notifications_enabled,
+)
 from web.services.segment_service import (
     confirm_synced,
     get_segment_batch,
@@ -18,7 +24,14 @@ logger = logging.getLogger(__name__)
 HTTP_404_NOT_FOUND: int = 404
 DEFAULT_SEGMENT_BATCH_LIMIT: int = 20
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api", dependencies=[Depends(require_auth)])
+
+
+@dataclass
+class MotionSettingsUpdate:
+    """Request body for PATCH /api/motion."""
+
+    notifications_enabled: bool
 
 
 @router.get("/status")
@@ -123,4 +136,40 @@ async def delete_all_footage() -> dict[str, int]:
     """
     deleted = purge_all_footage()
     logger.warning("Purged %d segment(s) from RPi via web UI", deleted)
+
     return {"deleted": deleted}
+
+
+@router.get("/motion")
+async def get_motion_settings(request: Request) -> dict[str, Any]:
+    """
+    Return current motion detection and notification state.
+
+    Args:
+        request: Incoming HTTP request used to read motion config from app state.
+
+    Returns:
+        Dict with keys: notifications_enabled, motion_enabled, ntfy_configured.
+        See motion_service.get_motion_state() for field definitions.
+    """
+    return get_motion_state(request.app.state.config.motion)
+
+
+@router.patch("/motion")
+async def update_motion_settings(body: MotionSettingsUpdate) -> dict[str, bool]:
+    """
+    Toggle push notification delivery on or off at runtime.
+
+    Does not affect motion detection itself — the camera still detects motion
+    and logs it; only ntfy.sh delivery is gated. The flag resets to True on
+    container restart.
+
+    Args:
+        body: JSON body with a single boolean field notifications_enabled.
+
+    Returns:
+        Dict echoing the new notifications_enabled value.
+    """
+    set_notifications_enabled(body.notifications_enabled)
+
+    return {"notifications_enabled": body.notifications_enabled}

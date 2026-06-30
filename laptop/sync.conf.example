@@ -22,3 +22,8 @@ sync_interval_seconds = 300
 catchup_threshold = 50
 trickle_threshold = 5
 batch_hard_limit = 20
+
+[auth]
+# Must match the [auth] section in cctv.conf on the RPi.
+username = "admin"
+password = "change-me"

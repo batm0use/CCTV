@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 
+from web.auth import require_auth
 from web.services.footage_service import resolve_segment_file
 from web.services.segment_service import list_all_segments_paginated
 
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 HTTP_400_BAD_REQUEST: int = 400
 HTTP_404_NOT_FOUND: int = 404
 
-router = APIRouter(prefix="/footage")
+router = APIRouter(prefix="/footage", dependencies=[Depends(require_auth)])
 
 
 @router.get("")

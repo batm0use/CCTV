@@ -7,9 +7,17 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, sans-serif; background: #111; color: #eee; min-height: 100vh; }
-    nav { display: flex; gap: 1.5rem; padding: 0.75rem 1.5rem; background: #1a1a1a; border-bottom: 1px solid #333; }
+    nav { display: flex; align-items: center; gap: 1.5rem; padding: 0.75rem 1.5rem; background: #1a1a1a; border-bottom: 1px solid #333; }
     nav a { color: #ccc; text-decoration: none; font-size: 0.9rem; }
     nav a:hover, nav a.active { color: #fff; }
+    .nav-right { margin-left: auto; display: flex; align-items: center; gap: 1rem; }
+    .notif-btn { background: none; border: 1px solid #333; border-radius: 4px;
+                  color: #ccc; font-size: 0.82rem; padding: 0.25rem 0.6rem;
+                  cursor: pointer; line-height: 1.4; }
+    .notif-btn:hover { border-color: #555; color: #eee; }
+    .notif-btn.off { opacity: 0.5; }
+    .logout-link { color: #888; text-decoration: none; font-size: 0.82rem; }
+    .logout-link:hover { color: #ccc; }
     main { padding: 1.5rem; }
   </style>
   {% block head %}{% endblock %}
@@ -18,10 +26,51 @@
   <nav>
     <a href="/footage" {% if active == 'footage' %}class="active"{% endif %}>Footage</a>
     <a href="/api/status">Status</a>
+    <div class="nav-right">
+      <button id="notif-btn" class="notif-btn" onclick="toggleNotifications()" style="display:none"></button>
+      <a href="/logout" class="logout-link">Logout</a>
+    </div>
   </nav>
   <main>
     {% block content %}{% endblock %}
   </main>
   {% block scripts %}{% endblock %}
+  <script type="module">
+    let _notifEnabled = null;
+
+    function updateNotifButton() {
+      const btn = document.getElementById('notif-btn');
+      btn.textContent = _notifEnabled ? 'Alerts: on' : 'Alerts: off';
+      btn.classList.toggle('off', !_notifEnabled);
+    }
+
+    async function toggleNotifications() {
+      if (_notifEnabled === null) return;
+      const next = !_notifEnabled;
+      try {
+        const r = await fetch('/api/motion', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notifications_enabled: next }),
+        });
+        if (r.ok) { _notifEnabled = next; updateNotifButton(); }
+      } catch {}
+    }
+
+    globalThis.toggleNotifications = toggleNotifications;
+
+    try {
+      const r = await fetch('/api/motion');
+      if (r.ok) {
+        const data = await r.json();
+        if (data.motion_enabled && data.ntfy_configured) {
+          _notifEnabled = data.notifications_enabled;
+          const btn = document.getElementById('notif-btn');
+          btn.style.display = '';
+          updateNotifButton();
+        }
+      }
+    } catch {}
+  </script>
 </body>
 </html>
