@@ -16,21 +16,20 @@
                   cursor: pointer; line-height: 1.4; }
     .notif-btn:hover { border-color: #555; color: #eee; }
     .notif-btn.off { opacity: 0.5; }
+    .notif-btn:disabled { cursor: default; }
     .logout-link { color: #888; text-decoration: none; font-size: 0.82rem; }
     .logout-link:hover { color: #ccc; }
-    .back-link { color: #7cb8f0; text-decoration: none; font-size: 0.82rem;
-                  display: inline-block; margin-bottom: 1rem; }
-    .back-link:hover { text-decoration: underline; }
     main { padding: 1.5rem; }
   </style>
   {% block head %}{% endblock %}
 </head>
 <body>
   <nav>
+    <a href="/live" {% if active == 'live' %}class="active"{% endif %}>Live</a>
     <a href="/footage" {% if active == 'footage' %}class="active"{% endif %}>Footage</a>
     <a href="/status" {% if active == 'status' %}class="active"{% endif %}>Status</a>
     <div class="nav-right">
-      <button id="notif-btn" class="notif-btn" onclick="toggleNotifications()" style="display:none"></button>
+      <button id="notif-btn" class="notif-btn" onclick="toggleNotifications()"></button>
       <a href="/logout" class="logout-link">Logout</a>
     </div>
   </nav>
@@ -40,15 +39,23 @@
   {% block scripts %}{% endblock %}
   <script type="module">
     let _notifEnabled = null;
+    let _notifConfigured = false;
 
     function updateNotifButton() {
       const btn = document.getElementById('notif-btn');
+      if (!_notifConfigured) {
+        btn.textContent = 'Alerts: not configured';
+        btn.classList.add('off');
+        btn.disabled = true;
+
+        return;
+      }
       btn.textContent = _notifEnabled ? 'Alerts: on' : 'Alerts: off';
       btn.classList.toggle('off', !_notifEnabled);
     }
 
     async function toggleNotifications() {
-      if (_notifEnabled === null) return;
+      if (!_notifConfigured || _notifEnabled === null) return;
       const next = !_notifEnabled;
       try {
         const r = await fetch('/api/motion', {
@@ -66,14 +73,11 @@
       const r = await fetch('/api/motion');
       if (r.ok) {
         const data = await r.json();
-        if (data.motion_enabled && data.ntfy_configured) {
-          _notifEnabled = data.notifications_enabled;
-          const btn = document.getElementById('notif-btn');
-          btn.style.display = '';
-          updateNotifButton();
-        }
+        _notifConfigured = data.motion_enabled && data.ntfy_configured;
+        _notifEnabled = data.notifications_enabled;
       }
     } catch {}
+    updateNotifButton();
   </script>
 </body>
 </html>

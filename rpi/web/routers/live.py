@@ -40,7 +40,9 @@ async def live_page(request: Request) -> Response:
     Returns:
         HTML TemplateResponse for live.html.
     """
-    return request.app.state.templates.TemplateResponse(request, "live.html")
+    return request.app.state.templates.TemplateResponse(
+        request, "live.html", {"active": "live"}
+    )
 
 
 @router.get("/stream.mjpeg")
