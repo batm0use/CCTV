@@ -2,9 +2,11 @@
 {% block title %}Live — CCTV{% endblock %}
 {% block head %}
 <style>
-  .stream-container { display: flex; justify-content: center; margin-top: 1rem; }
-  .stream-container img { max-width: 100%; border: 1px solid #333; background: #000; }
-  .stream-label { text-align: center; margin-top: 0.5rem; color: #888; font-size: 0.8rem; }
+  html, body { height: 100vh; overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  main { flex: 1; padding: 0; display: flex; overflow: hidden; }
+  .stream-container { flex: 1; display: flex; align-items: center; justify-content: center; background: #000; }
+  .stream-container img { max-width: 100%; max-height: 100%; display: block; border: 1px solid #222; }
 </style>
 {% endblock %}
 {% block content %}
