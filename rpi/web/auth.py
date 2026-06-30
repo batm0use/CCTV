@@ -70,7 +70,7 @@ def _is_valid_session(token: str, lifetime_seconds: float) -> bool:
         created_at = _sessions.get(token)
         if created_at is None:
             return False
-        
+
         if time.time() - created_at > lifetime_seconds:
             del _sessions[token]
 

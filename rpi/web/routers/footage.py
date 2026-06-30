@@ -41,6 +41,7 @@ async def footage_browser(request: Request, page: int = 1) -> Response:
         request,
         "footage.html",
         {
+            "active": "footage",
             "all_segments": all_segments,
             "page": page,
             "page_size": config.web.footage_page_size,

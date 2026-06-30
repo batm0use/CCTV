@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Status — CCTV{% endblock %}
+{% block head %}
+<style>
+  .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                  gap: 1rem; margin-top: 1rem; }
+  .status-card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 6px;
+                  padding: 1rem; }
+  .status-label { font-size: 0.75rem; color: #888; text-transform: uppercase;
+                   letter-spacing: 0.04em; }
+  .status-value { font-size: 1.4rem; margin-top: 0.3rem; }
+  .status-value.good { color: #6fbf6f; }
+  .status-value.bad { color: #e08888; }
+  .status-sub { font-size: 0.78rem; color: #888; margin-top: 0.2rem; }
+</style>
+{% endblock %}
+{% block content %}
+<a href="/" class="back-link">← Back</a>
+<div class="status-grid">
+  <div class="status-card">
+    <div class="status-label">Notifications</div>
+    <div class="status-value {{ 'good' if notifications_active else 'bad' }}">
+      {{ 'Sending' if notifications_active else 'Not sending' }}
+    </div>
+  </div>
+  <div class="status-card">
+    <div class="status-label">Motion detection</div>
+    <div class="status-value {{ 'good' if motion_enabled else 'bad' }}">
+      {{ 'Enabled' if motion_enabled else 'Disabled' }}
+    </div>
+  </div>
+  <div class="status-card">
+    <div class="status-label">Unsynced recordings</div>
+    <div class="status-value">{{ unsynced_segment_count }}</div>
+  </div>
+  <div class="status-card">
+    <div class="status-label">Disk usage</div>
+    <div class="status-value">{{ disk_used_pct }}%</div>
+    <div class="status-sub">{{ disk_used_gb }} GB / {{ disk_total_gb }} GB</div>
+  </div>
+</div>
+{% endblock %}

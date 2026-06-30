@@ -20,6 +20,7 @@
 </style>
 {% endblock %}
 {% block content %}
+<a href="/" class="back-link">Back</a>
 <div style="display:flex; align-items:baseline; gap:1.5rem; margin-bottom:0.5rem;">
   <p class="segment-meta">{{ total_count }} recording{{ 's' if total_count != 1 }} — page {{ page }} of {{ total_pages }}</p>
   {% if total_count > 0 %}

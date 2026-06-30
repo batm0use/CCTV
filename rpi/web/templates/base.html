@@ -18,6 +18,9 @@
     .notif-btn.off { opacity: 0.5; }
     .logout-link { color: #888; text-decoration: none; font-size: 0.82rem; }
     .logout-link:hover { color: #ccc; }
+    .back-link { color: #7cb8f0; text-decoration: none; font-size: 0.82rem;
+                  display: inline-block; margin-bottom: 1rem; }
+    .back-link:hover { text-decoration: underline; }
     main { padding: 1.5rem; }
   </style>
   {% block head %}{% endblock %}
@@ -25,7 +28,7 @@
 <body>
   <nav>
     <a href="/footage" {% if active == 'footage' %}class="active"{% endif %}>Footage</a>
-    <a href="/api/status">Status</a>
+    <a href="/status" {% if active == 'status' %}class="active"{% endif %}>Status</a>
     <div class="nav-right">
       <button id="notif-btn" class="notif-btn" onclick="toggleNotifications()" style="display:none"></button>
       <a href="/logout" class="logout-link">Logout</a>
