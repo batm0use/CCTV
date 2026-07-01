@@ -22,7 +22,7 @@ Each directory is an independent deployable with its own `Dockerfile`, `docker-c
 
 ---
 
-> **Security warning** — The web interface has no login. Anyone who can reach port 8080 can browse, stream, download, and delete all footage. **Never port-forward port 8080 directly to the internet.** For remote access, use RPi Connect (see [Remote access](#remote-access)), a VPN, or a reverse proxy with authentication in front.
+> **Note** — Do **not** port-forward port 8080 directly to the internet. The web interface uses password authentication, but credentials are sent over plain HTTP on the local network. For remote access, use RPi Connect (see [Remote access](#remote-access)), which wraps the connection in HTTPS.
 
 ---
 
@@ -103,13 +103,16 @@ cctv-main-1     | INFO recorder.recorder: Started segment 2026-06-28_23-02-49.mp
 
 ## Web UI
 
-Open `http://<rpi-ip>:8080/footage` in a browser on the same network. Find your RPi's IP with `hostname -I` on the Pi.
+Open `http://<rpi-ip>:8080` in a browser on the same network (find the IP with `hostname -I` on the Pi). You will be redirected to `/login` — enter the credentials you set in the `[auth]` section of `cctv.conf`. Sessions last 24 hours by default.
 
 | URL | What you get |
 |-----|-------------|
+| `http://<rpi-ip>:8080/live` | Full-window MJPEG live view (default landing page after login) |
 | `http://<rpi-ip>:8080/footage` | Paginated footage browser with in-browser video playback |
-| `http://<rpi-ip>:8080/live` | MJPEG live view (updates every ~200 ms) |
-| `http://<rpi-ip>:8080/api/status` | JSON — disk usage and unsynced segment count |
+| `http://<rpi-ip>:8080/status` | System status — disk usage, unsynced count, motion and notification state |
+| `http://<rpi-ip>:8080/api/status` | JSON status (used by the laptop sync agent) |
+
+The nav bar on every page includes an **Alerts** toggle button. When motion detection and ntfy are configured, clicking it pauses or resumes push notifications at runtime without restarting the container.
 
 ### Remote access
 
@@ -134,6 +137,17 @@ RPi Connect provides a secure HTTPS tunnel with no port forwarding or VPN requir
 ## Configuration
 
 Copy `cctv.conf.example` to `cctv.conf` and edit. The file is gitignored and never committed. Key options:
+
+### Authentication
+
+```toml
+[auth]
+username = "admin"
+password = "change-me"
+session_lifetime_hours = 24   # how long a browser login session stays valid (minimum 1)
+```
+
+Both `username` and `password` are required — the server refuses to start if either is empty. The laptop sync agent reads the same credentials from its own `sync.conf` (see [Laptop sync](#laptop-sync-)). Change these before your first deployment; the defaults are intentionally obvious.
 
 ### Recording bitrate and encoder
 
@@ -202,6 +216,8 @@ sudo docker compose -f docker-compose.rpi.yml restart
 **macOS / desktop** — open `https://ntfy.sh/<your-topic>` in Chrome or Firefox and click **Allow** when the browser asks for notification permission. You can also install the page as a PWA (Chrome: address bar → install icon). Notifications arrive as system banners.
 
 Notifications work from any network — the RPi posts to ntfy.sh over the internet, and your phone or laptop receives them via the ntfy service regardless of which network either device is on.
+
+To pause notifications temporarily without editing the config or restarting the container, use the **Alerts** toggle in the nav bar. The toggle resets to enabled on the next container restart.
 
 ### How detection works
 
@@ -286,7 +302,8 @@ The sync agent polls the RPi API, downloads new segments via HTTP, and marks the
 ```bash
 cd /path/to/CCTV/laptop
 cp sync.conf.example sync.conf
-# Edit sync.conf — set rpi_base_url and local_footage_dir
+# Edit sync.conf — set rpi_base_url, local_footage_dir, and [auth] credentials
+# (username/password must match the [auth] section in cctv.conf on the RPi)
 
 docker compose -f docker-compose.laptop.yml up -d       # start
 docker compose -f docker-compose.laptop.yml logs -f     # follow logs
